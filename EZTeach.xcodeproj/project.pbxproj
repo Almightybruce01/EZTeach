@@ -1,0 +1,669 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B74A69EF2F212B7000BBDB34 /* Screenshot 2025-12-19 at 10.11.13 AM.png in Frameworks */ = {isa = PBXBuildFile; fileRef = B74A69EE2F212B7000BBDB34 /* Screenshot 2025-12-19 at 10.11.13 AM.png */; };
+		B7D22A462F1EFCF6008FF824 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B7D22A452F1EFCF6008FF824 /* FirebaseAuth */; settings = {ATTRIBUTES = (Required, ); }; };
+		B7D22A482F1EFCF6008FF824 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = B7D22A472F1EFCF6008FF824 /* FirebaseFirestore */; };
+		B7E2CE322F293DFA001739FA /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = B7E2CE312F293DFA001739FA /* FirebaseStorage */; };
+		B7E2CE332F2A0000001739FA /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = B7E2CE342F2A0000001739FA /* FirebaseFunctions */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B71AE5592F0CEFA00079668B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B71AE5432F0CEF9B0079668B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B71AE54A2F0CEF9B0079668B;
+			remoteInfo = EZTeach;
+		};
+		B71AE5632F0CEFA00079668B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B71AE5432F0CEF9B0079668B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B71AE54A2F0CEF9B0079668B;
+			remoteInfo = EZTeach;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B71AE54B2F0CEF9B0079668B /* EZTeach.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EZTeach.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B71AE5582F0CEFA00079668B /* EZTeachTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EZTeachTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B71AE5622F0CEFA00079668B /* EZTeachUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EZTeachUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B74A69EE2F212B7000BBDB34 /* Screenshot 2025-12-19 at 10.11.13 AM.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "Screenshot 2025-12-19 at 10.11.13 AM.png"; path = "../Screenshot 2025-12-19 at 10.11.13 AM.png"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B7CAAE892F2A76FF00407016 /* Exceptions for "EZTeach" folder in "EZTeach" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B71AE54A2F0CEF9B0079668B /* EZTeach */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		B71AE54D2F0CEF9B0079668B /* EZTeach */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B7CAAE892F2A76FF00407016 /* Exceptions for "EZTeach" folder in "EZTeach" target */,
+			);
+			path = EZTeach;
+			sourceTree = "<group>";
+		};
+		B71AE55B2F0CEFA00079668B /* EZTeachTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EZTeachTests;
+			sourceTree = "<group>";
+		};
+		B71AE5652F0CEFA00079668B /* EZTeachUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EZTeachUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B71AE5482F0CEF9B0079668B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B74A69EF2F212B7000BBDB34 /* Screenshot 2025-12-19 at 10.11.13 AM.png in Frameworks */,
+				B7E2CE322F293DFA001739FA /* FirebaseStorage in Frameworks */,
+				B7E2CE332F2A0000001739FA /* FirebaseFunctions in Frameworks */,
+				B7D22A462F1EFCF6008FF824 /* FirebaseAuth in Frameworks */,
+				B7D22A482F1EFCF6008FF824 /* FirebaseFirestore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B71AE5552F0CEFA00079668B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B71AE55F2F0CEFA00079668B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B71AE5422F0CEF9B0079668B = {
+			isa = PBXGroup;
+			children = (
+				B71AE54D2F0CEF9B0079668B /* EZTeach */,
+				B71AE55B2F0CEFA00079668B /* EZTeachTests */,
+				B71AE5652F0CEFA00079668B /* EZTeachUITests */,
+				B74A69ED2F212B6F00BBDB34 /* Frameworks */,
+				B71AE54C2F0CEF9B0079668B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B71AE54C2F0CEF9B0079668B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B71AE54B2F0CEF9B0079668B /* EZTeach.app */,
+				B71AE5582F0CEFA00079668B /* EZTeachTests.xctest */,
+				B71AE5622F0CEFA00079668B /* EZTeachUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B74A69ED2F212B6F00BBDB34 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B74A69EE2F212B7000BBDB34 /* Screenshot 2025-12-19 at 10.11.13 AM.png */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B71AE54A2F0CEF9B0079668B /* EZTeach */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B71AE56C2F0CEFA00079668B /* Build configuration list for PBXNativeTarget "EZTeach" */;
+			buildPhases = (
+				B71AE5472F0CEF9B0079668B /* Sources */,
+				B71AE5482F0CEF9B0079668B /* Frameworks */,
+				B71AE5492F0CEF9B0079668B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B71AE54D2F0CEF9B0079668B /* EZTeach */,
+			);
+			name = EZTeach;
+			packageProductDependencies = (
+				B7D22A452F1EFCF6008FF824 /* FirebaseAuth */,
+				B7D22A472F1EFCF6008FF824 /* FirebaseFirestore */,
+				B7E2CE312F293DFA001739FA /* FirebaseStorage */,
+			);
+			productName = EZTeach;
+			productReference = B71AE54B2F0CEF9B0079668B /* EZTeach.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B71AE5572F0CEFA00079668B /* EZTeachTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B71AE56F2F0CEFA00079668B /* Build configuration list for PBXNativeTarget "EZTeachTests" */;
+			buildPhases = (
+				B71AE5542F0CEFA00079668B /* Sources */,
+				B71AE5552F0CEFA00079668B /* Frameworks */,
+				B71AE5562F0CEFA00079668B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B71AE55A2F0CEFA00079668B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B71AE55B2F0CEFA00079668B /* EZTeachTests */,
+			);
+			name = EZTeachTests;
+			packageProductDependencies = (
+			);
+			productName = EZTeachTests;
+			productReference = B71AE5582F0CEFA00079668B /* EZTeachTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B71AE5612F0CEFA00079668B /* EZTeachUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B71AE5722F0CEFA00079668B /* Build configuration list for PBXNativeTarget "EZTeachUITests" */;
+			buildPhases = (
+				B71AE55E2F0CEFA00079668B /* Sources */,
+				B71AE55F2F0CEFA00079668B /* Frameworks */,
+				B71AE5602F0CEFA00079668B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B71AE5642F0CEFA00079668B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B71AE5652F0CEFA00079668B /* EZTeachUITests */,
+			);
+			name = EZTeachUITests;
+			packageProductDependencies = (
+			);
+			productName = EZTeachUITests;
+			productReference = B71AE5622F0CEFA00079668B /* EZTeachUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B71AE5432F0CEF9B0079668B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					B71AE54A2F0CEF9B0079668B = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					B71AE5572F0CEFA00079668B = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = B71AE54A2F0CEF9B0079668B;
+					};
+					B71AE5612F0CEFA00079668B = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = B71AE54A2F0CEF9B0079668B;
+					};
+				};
+			};
+			buildConfigurationList = B71AE5462F0CEF9B0079668B /* Build configuration list for PBXProject "EZTeach" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B71AE5422F0CEF9B0079668B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B7D22A442F1EFCF6008FF824 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B71AE54C2F0CEF9B0079668B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B71AE54A2F0CEF9B0079668B /* EZTeach */,
+				B71AE5572F0CEFA00079668B /* EZTeachTests */,
+				B71AE5612F0CEFA00079668B /* EZTeachUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B71AE5492F0CEF9B0079668B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B71AE5562F0CEFA00079668B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B71AE5602F0CEFA00079668B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B71AE5472F0CEF9B0079668B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B71AE5542F0CEFA00079668B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B71AE55E2F0CEFA00079668B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B71AE55A2F0CEFA00079668B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B71AE54A2F0CEF9B0079668B /* EZTeach */;
+			targetProxy = B71AE5592F0CEFA00079668B /* PBXContainerItemProxy */;
+		};
+		B71AE5642F0CEFA00079668B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B71AE54A2F0CEF9B0079668B /* EZTeach */;
+			targetProxy = B71AE5632F0CEFA00079668B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B71AE56A2F0CEFA00079668B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B71AE56B2F0CEFA00079668B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B71AE56D2F0CEFA00079668B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = EZTeach/EZTeach.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EZTeach/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brianbruce.EZTeach;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B71AE56E2F0CEFA00079668B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = EZTeach/EZTeach.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EZTeach/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brianbruce.EZTeach;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B71AE5702F0CEFA00079668B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bruce.EZTeachTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EZTeach.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EZTeach";
+			};
+			name = Debug;
+		};
+		B71AE5712F0CEFA00079668B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bruce.EZTeachTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EZTeach.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EZTeach";
+			};
+			name = Release;
+		};
+		B71AE5732F0CEFA00079668B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bruce.EZTeachUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = EZTeach;
+			};
+			name = Debug;
+		};
+		B71AE5742F0CEFA00079668B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VAWDYZ2B9U;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bruce.EZTeachUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = EZTeach;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B71AE5462F0CEF9B0079668B /* Build configuration list for PBXProject "EZTeach" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B71AE56A2F0CEFA00079668B /* Debug */,
+				B71AE56B2F0CEFA00079668B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B71AE56C2F0CEFA00079668B /* Build configuration list for PBXNativeTarget "EZTeach" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B71AE56D2F0CEFA00079668B /* Debug */,
+				B71AE56E2F0CEFA00079668B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B71AE56F2F0CEFA00079668B /* Build configuration list for PBXNativeTarget "EZTeachTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B71AE5702F0CEFA00079668B /* Debug */,
+				B71AE5712F0CEFA00079668B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B71AE5722F0CEFA00079668B /* Build configuration list for PBXNativeTarget "EZTeachUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B71AE5732F0CEFA00079668B /* Debug */,
+				B71AE5742F0CEFA00079668B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B7D22A442F1EFCF6008FF824 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B7D22A452F1EFCF6008FF824 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B7D22A442F1EFCF6008FF824 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		B7D22A472F1EFCF6008FF824 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B7D22A442F1EFCF6008FF824 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		B7E2CE312F293DFA001739FA /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B7D22A442F1EFCF6008FF824 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		B7E2CE342F2A0000001739FA /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B7D22A442F1EFCF6008FF824 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B71AE5432F0CEF9B0079668B /* Project object */;
+}

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EZTeach Admin — Control Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0d;
+      --bg-card: #141419;
+      --border: #252530;
+      --text: #e8e8ed;
+      --text-muted: #888;
+      --accent: #6366f1;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; min-height: 100vh; }
+    .container { max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    .sub { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .section h2 { font-size: 1.1rem; margin: 0 0 20px; display: flex; align-items: center; gap: 8px; }
+    .section h2 .badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
+    .badge-free { background: rgba(34,197,94,0.2); color: var(--success); }
+    .badge-paid { background: rgba(245,158,11,0.2); color: var(--warning); }
+    .total-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+    .total-box {
+      flex: 1;
+      min-width: 180px;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05));
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: var(--radius);
+    }
+    .total-box .label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; }
+    .total-box .value { font-size: 1.75rem; font-weight: 700; color: var(--accent); }
+    .warning-box {
+      padding: 16px;
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+    .warning-box strong { color: var(--warning); }
+    .warning-box.danger { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
+    .warning-box.danger strong { color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-muted); font-weight: 500; font-size: 0.85rem; }
+    tr:last-child td { border-bottom: none; }
+    .service-name { font-weight: 600; }
+    .notes-edit {
+      width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: inherit; font-size: 0.9rem; min-height: 36px;
+    }
+    .notes-edit:focus { outline: none; border-color: var(--accent); }
+    .link { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .link:hover { text-decoration: underline; }
+    .tier-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+    .tier-box {
+      flex: 1; min-width: 200px; padding: 16px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+    }
+    .tier-box h3 { font-size: 0.95rem; margin: 0 0 8px; }
+    .tier-box .price { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+    .tier-box input { width: 100%; padding: 6px 10px; margin-top: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.9rem; }
+    .checklist { list-style: none; padding: 0; margin: 0; }
+    .checklist li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+    .checklist .label { flex: 1; }
+    .btn { display: inline-block; padding: 10px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; font-family: inherit; font-weight: 600; font-size: 0.9rem; cursor: pointer; margin-top: 8px; margin-right: 8px; }
+    .btn:hover { opacity: 0.9; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    .steps-block { background: var(--bg); border-radius: 8px; padding: 16px; margin-top: 12px; font-size: 0.9rem; line-height: 1.6; }
+    .steps-block summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+    .steps-block pre { background: var(--bg-card); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+    .steps-block ol { margin: 8px 0; padding-left: 20px; }
+    .steps-block li { margin-bottom: 6px; }
+    .prompt-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.85rem; position: relative; }
+    .prompt-box pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+    .prompt-box .copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; font-size: 0.75rem; }
+    .ai-badge { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
+    .updated { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>EZTeach Admin Control Center</h1>
+    <p class="sub">Track costs, upgrades, and use Cursor AI to make changes. All data saves locally.</p>
+
+    <!-- Total costs -->
+    <section class="section">
+      <h2>Total costs</h2>
+      <div class="total-row">
+        <div class="total-box">
+          <div class="label">Estimated monthly</div>
+          <div class="value">$<span id="total-monthly">9</span>/mo</div>
+        </div>
+        <div class="total-box">
+          <div class="label">Estimated yearly</div>
+          <div class="value">$<span id="total-yearly">223</span>/yr</div>
+        </div>
+      </div>
+      <p class="updated">Apple $99/yr + Domain ~$12/yr + Stripe fees. Edit renewal dates below to adjust.</p>
+    </section>
+
+    <!-- Warnings -->
+    <section class="section">
+      <h2>⚠️ Warnings & renewals</h2>
+      <div id="warnings"></div>
+      <p class="updated">Set expiry dates in service notes (e.g. "Renews Jan 2026") to see alerts.</p>
+    </section>
+
+    <!-- App pricing -->
+    <section class="section">
+      <h2>App pricing (Stripe)</h2>
+      <div class="tier-row">
+        <div class="tier-box">
+          <h3>School monthly</h3>
+          <div class="price">$<span id="price-monthly">75</span>/mo</div>
+          <input type="text" id="edit-monthly" placeholder="75" data-key="priceMonthly">
+        </div>
+        <div class="tier-box">
+          <h3>School yearly</h3>
+          <div class="price">$<span id="price-yearly">750</span>/yr</div>
+          <input type="text" id="edit-yearly" placeholder="750" data-key="priceYearly">
+        </div>
+      </div>
+      <p class="updated">When you change these, tell Cursor to update functions/index.js unit_amount (cents) and the app/website.</p>
+    </section>
+
+    <!-- Cursor AI Helper -->
+    <section class="section">
+      <h2><span class="ai-badge">AI</span> Cursor helper — copy prompts and paste in Cursor chat</h2>
+      <p class="notes" style="margin-bottom:16px">Open Cursor with /Users/brianbruce/Desktop/EZTeach. Copy a prompt → paste in Cursor chat → AI will make the changes.</p>
+      <div class="prompt-box">
+        <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
+        <pre data-prompt="Upgrade EZTeach pricing to $[MONTHLY]/month and $[YEARLY]/year everywhere: functions/index.js (unit_amount in cents: monthly*100, yearly*100), EZTeach/SubscriptionView.swift, ezteach-website/index.html, AccountView.swift. Update display and Stripe checkout.">Upgrade pricing (uses your values above)</pre>
+      </div>
+      <div class="prompt-box">
+        <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
+        <pre data-prompt="Add a new promo code to my EZTeach app. I need to create a Firestore document in the promoCodes collection. I'll provide the code and discount. Show me the exact fields to add.">Add new promo code</pre>
+      </div>
+      <div class="prompt-box">
+        <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
+        <pre data-prompt="Deploy my EZTeach Firebase functions. Run: cd /Users/brianbruce/Desktop/EZTeach && firebase deploy --only functions">Deploy Firebase functions</pre>
+      </div>
+      <div class="prompt-box">
+        <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
+        <pre data-prompt="Fix any build errors in my EZTeach Xcode project at /Users/brianbruce/Desktop/EZTeach">Fix Xcode build errors</pre>
+      </div>
+      <div class="prompt-box">
+        <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
+        <pre data-prompt="Push ezteach-website to GitHub: cd /Users/brianbruce/Desktop/EZTeach/ezteach-website && git add -A && git commit -m 'Update' && git push">Push website to GitHub</pre>
+      </div>
+    </section>
+
+    <!-- Remaining steps -->
+    <section class="section">
+      <h2>Remaining setup steps</h2>
+      <div class="steps-block">
+        <details open>
+          <summary>Step 3 — Firebase Auth & Rules</summary>
+          <p><strong>3a Auth:</strong> <a href="https://console.firebase.google.com" target="_blank" class="link">Firebase Console</a> → ezteach-cdf5c → Build → Authentication → Sign-in method → Email/Password → Enable → Save</p>
+          <p><strong>3b Rules:</strong></p>
+          <pre>cd /Users/brianbruce/Desktop/EZTeach
+firebase deploy --only firestore:rules
+firebase deploy --only storage</pre>
+        </details>
+        <details>
+          <summary>Step 4 — Promo codes (Firestore)</summary>
+          <p>Firebase Console → Firestore → Start collection <code>promoCodes</code></p>
+          <p><strong>Doc 1:</strong> ID <code>EZT6X7K2M9QPN4LR</code> — isActive true, yearlyOnly true, discountPercent 1, description "100% off yearly"</p>
+          <p><strong>Doc 2:</strong> ID <code>EZT4Y9N2QR7LKP3M</code> — isActive true, yearlyOnly true, discountPercent 0.25, description "25% off yearly"</p>
+        </details>
+        <details>
+          <summary>Step 5 — Website</summary>
+          <pre>cd /Users/brianbruce/Desktop/EZTeach/ezteach-website
+git add -A && git commit -m "Update" && git push</pre>
+          <p>Verify <a href="https://ezteach.org" target="_blank" class="link">ezteach.org</a>: pricing, contact form, login.</p>
+        </details>
+        <details>
+          <summary>Step 6 — App Store Connect</summary>
+          <p><a href="https://appstoreconnect.apple.com" target="_blank" class="link">App Store Connect</a> → My Apps → EZTeach → App Information</p>
+          <p>Support: https://ezteach.org/support.html | Marketing: https://ezteach.org | Privacy: https://ezteach.org/privacy.html</p>
+        </details>
+        <details>
+          <summary>Step 7 — Stripe webhook</summary>
+          <p>URL: <code>https://us-central1-ezteach-cdf5c.cloudfunctions.net/stripeWebhook</code></p>
+          <p>Events: checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.deleted</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section class="section">
+      <h2>Services & costs</h2>
+      <table>
+        <thead>
+          <tr><th>Service</th><th>Cost</th><th>Notes / expiry</th><th>Link</th></tr>
+        </thead>
+        <tbody id="services-table"></tbody>
+      </table>
+      <button class="btn" onclick="saveAll()">Save notes</button>
+    </section>
+
+    <!-- Checklist -->
+    <section class="section">
+      <h2>Checklist</h2>
+      <ul class="checklist" id="checklist"></ul>
+    </section>
+
+    <!-- Upgrade log -->
+    <section class="section">
+      <h2>Upgrade log</h2>
+      <textarea id="upgrade-log" class="notes-edit" rows="3" placeholder="Log changes here..."></textarea>
+      <button class="btn btn-ghost" onclick="saveLog()">Save</button>
+    </section>
+  </div>
+
+  <script>
+    const SERVICES = [
+      { id: 'firebase', name: 'Firebase', cost: 'Free / pay-as-you-go', costVal: 0, link: 'https://console.firebase.google.com', notesKey: 'notes_firebase' },
+      { id: 'stripe', name: 'Stripe', cost: '2.9% + $0.30/txn', costVal: 0, link: 'https://dashboard.stripe.com', notesKey: 'notes_stripe' },
+      { id: 'netlify', name: 'Netlify', cost: 'Free', costVal: 0, link: 'https://app.netlify.com', notesKey: 'notes_netlify' },
+      { id: 'github', name: 'GitHub', cost: 'Free', costVal: 0, link: 'https://github.com', notesKey: 'notes_github' },
+      { id: 'domain', name: 'Domain (ezteach.org)', cost: '~$12/yr', costVal: 1, link: 'https://www.namecheap.com', notesKey: 'notes_domain' },
+      { id: 'formgrid', name: 'FormGrid', cost: 'Free', costVal: 0, link: 'https://formgrid.com', notesKey: 'notes_formgrid' },
+      { id: 'sendgrid', name: 'SendGrid', cost: 'Free 100/day', costVal: 0, link: 'https://app.sendgrid.com', notesKey: 'notes_sendgrid' },
+      { id: 'apple', name: 'Apple Developer', cost: '$99/yr', costVal: 8.25, link: 'https://developer.apple.com', notesKey: 'notes_apple' },
+    ];
+
+    const CHECKLIST_ITEMS = [
+      { key: 'chk_auth', label: 'Firebase Auth: Email/Password enabled' },
+      { key: 'chk_rules', label: 'Firestore & Storage rules deployed' },
+      { key: 'chk_promo', label: 'Promo codes in Firestore' },
+      { key: 'chk_stripe', label: 'Stripe webhook set' },
+      { key: 'chk_website', label: 'Website live at ezteach.org' },
+      { key: 'chk_appstore', label: 'App Store Connect URLs' },
+      { key: 'chk_functions', label: 'Functions deployed' },
+    ];
+
+    const PROMPTS = [
+      "Upgrade EZTeach pricing to $[MONTHLY]/month and $[YEARLY]/year everywhere: functions/index.js (unit_amount in cents), EZTeach/SubscriptionView.swift, ezteach-website/index.html, and AccountView.swift.",
+      "Add a new promo code to my EZTeach app. Create Firestore document in promoCodes collection. I'll provide the code and discount.",
+      "Deploy my EZTeach Firebase functions: cd /Users/brianbruce/Desktop/EZTeach && firebase deploy --only functions",
+      "Fix any build errors in my EZTeach Xcode project at /Users/brianbruce/Desktop/EZTeach",
+      "Push ezteach-website to GitHub: cd /Users/brianbruce/Desktop/EZTeach/ezteach-website && git add -A && git commit -m 'Update' && git push"
+    ];
+
+    function load() {
+      const data = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
+      const monthly = parseFloat(data.priceMonthly || 75);
+      const yearly = parseFloat(data.priceYearly || 750);
+
+      document.getElementById('price-monthly').textContent = monthly;
+      document.getElementById('price-yearly').textContent = yearly;
+      document.getElementById('edit-monthly').value = monthly;
+      document.getElementById('edit-yearly').value = yearly;
+      document.getElementById('upgrade-log').value = data.upgradeLog || '';
+
+      // Totals: Apple $99/yr (~$8.25/mo) + Domain ~$12/yr (~$1/mo)
+      const totalMonthly = 8.25 + 1;
+      const totalYearly = 99 + 12;
+      document.getElementById('total-monthly').textContent = totalMonthly.toFixed(0);
+      document.getElementById('total-yearly').textContent = totalYearly;
+
+      // Warnings
+      const warnings = [];
+      const appleExpiry = (data.notes_apple || '').toLowerCase();
+      const domainExpiry = (data.notes_domain || '').toLowerCase();
+      if (!appleExpiry.includes('renew') && !appleExpiry.includes('202')) {
+        warnings.push('<div class="warning-box"><strong>Apple Developer</strong> — Renews yearly ($99). Add expiry in notes.</div>');
+      }
+      if (!domainExpiry.includes('renew') && !domainExpiry.includes('202')) {
+        warnings.push('<div class="warning-box"><strong>Domain (ezteach.org)</strong> — ~$12/yr. Add renewal date in notes.</div>');
+      }
+      warnings.push('<div class="warning-box"><strong>SendGrid</strong> — Free tier = 100 emails/day. Upgrade if you exceed.</div>');
+      document.getElementById('warnings').innerHTML = warnings.join('');
+
+      // Services
+      const tbody = document.getElementById('services-table');
+      tbody.innerHTML = SERVICES.map(s => {
+        const notes = (data[s.notesKey] || '').replace(/"/g, '&quot;');
+        const badge = s.cost.toLowerCase().includes('free') ? 'badge-free' : 'badge-paid';
+        return `<tr><td class="service-name">${s.name}</td><td><span class="badge ${badge}">${s.cost}</span></td><td><input class="notes-edit" type="text" data-key="${s.notesKey}" value="${notes}" placeholder="Renews Jan 2026..."></td><td><a href="${s.link}" target="_blank" class="link">Open</a></td></tr>`;
+      }).join('');
+
+      // Checklist
+      document.getElementById('checklist').innerHTML = CHECKLIST_ITEMS.map(c => {
+        const checked = data[c.key] ? 'checked' : '';
+        return `<li><input type="checkbox" data-key="${c.key}" ${checked}><span class="label">${c.label}</span></li>`;
+      }).join('');
+
+      // Event listeners
+      document.querySelectorAll('#edit-monthly, #edit-yearly').forEach(el => {
+        el.addEventListener('change', function() {
+          const key = this.dataset.key;
+          const val = this.value || (key === 'priceMonthly' ? '75' : '750');
+          const d = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
+          d[key] = val;
+          localStorage.setItem('ezteach_admin', JSON.stringify(d));
+          document.getElementById('price-' + (key === 'priceMonthly' ? 'monthly' : 'yearly')).textContent = val;
+        });
+      });
+      document.querySelectorAll('.notes-edit[data-key]').forEach(el => {
+        el.addEventListener('blur', () => saveNote(el.dataset.key, el.value));
+      });
+      document.querySelectorAll('.checklist input').forEach(el => {
+        el.addEventListener('change', function() {
+          const d = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
+          d[this.dataset.key] = this.checked;
+          localStorage.setItem('ezteach_admin', JSON.stringify(d));
+        });
+      });
+    }
+
+    function copyPrompt(btn) {
+      const box = btn.closest('.prompt-box');
+      const pre = box?.querySelector('pre');
+      let prompt = pre?.getAttribute('data-prompt') || pre?.textContent || '';
+      const monthly = document.getElementById('edit-monthly')?.value || '75';
+      const yearly = document.getElementById('edit-yearly')?.value || '750';
+      prompt = prompt.replace(/\[MONTHLY\]/g, monthly).replace(/\[YEARLY\]/g, yearly);
+      navigator.clipboard.writeText(prompt).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      });
+    }
+
+    function saveNote(key, value) {
+      const d = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
+      d[key] = value;
+      localStorage.setItem('ezteach_admin', JSON.stringify(d));
+    }
+
+    function saveAll() {
+      document.querySelectorAll('.notes-edit[data-key]').forEach(el => saveNote(el.dataset.key, el.value));
+      alert('Saved.');
+    }
+
+    function saveLog() {
+      const d = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
+      d.upgradeLog = document.getElementById('upgrade-log').value;
+      localStorage.setItem('ezteach_admin', JSON.stringify(d));
+      alert('Log saved.');
+    }
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ================= HELPER FUNCTIONS =================
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return userDoc().data.role;
+    }
+
+    function activeSchool() {
+      return userDoc().data.activeSchoolId;
+    }
+
+    function isSchoolAdmin() {
+      return signedIn() && role() == "school";
+    }
+
+    function isTeacher() {
+      return signedIn() && role() == "teacher";
+    }
+
+    function isSub() {
+      return signedIn() && role() == "sub";
+    }
+
+    function isParent() {
+      return signedIn() && role() == "parent";
+    }
+
+    function isStaff() {
+      return isSchoolAdmin() || isTeacher() || isSub();
+    }
+
+    function isParentOfStudent(studentId) {
+      return isParent() && 
+        request.auth.uid in get(/databases/$(database)/documents/students/$(studentId)).data.parentIds;
+    }
+
+    // ================= USERS =================
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // ================= SCHOOLS =================
+    match /schools/{schoolId} {
+      allow create: if signedIn();
+      allow read: if signedIn();
+      allow update, delete: if isSchoolAdmin() && activeSchool() == schoolId;
+    }
+
+    // ================= DISTRICTS =================
+    match /districts/{districtId} {
+      allow read: if signedIn() && (
+        isSchoolAdmin() || 
+        resource.data.ownerUid == request.auth.uid
+      );
+      allow create: if signedIn();
+      allow update, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ================= TEACHERS =================
+    match /teachers/{teacherDocId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        resource.data.userId == request.auth.uid
+      );
+
+      allow create: if signedIn() && (
+        (isTeacher() && request.resource.data.userId == request.auth.uid && request.resource.data.schoolId == null) ||
+        (isSchoolAdmin() && request.resource.data.schoolId == activeSchool())
+      );
+
+      allow update: if signedIn() && (
+        isSchoolAdmin() ||
+        (isTeacher() && resource.data.userId == request.auth.uid)
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= SUBS =================
+    match /subs/{subDocId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        resource.data.userId == request.auth.uid
+      );
+
+      allow create: if signedIn() && (
+        (isSub() && request.resource.data.userId == request.auth.uid && request.resource.data.schoolId == null) ||
+        (isSchoolAdmin() && request.resource.data.schoolId == activeSchool())
+      );
+
+      allow update: if signedIn() && (
+        isSchoolAdmin() ||
+        (isSub() && resource.data.userId == request.auth.uid)
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= PARENTS =================
+    match /parents/{parentDocId} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+
+      allow create: if signedIn() && isParent() && request.resource.data.userId == request.auth.uid;
+
+      allow update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= PARENT-STUDENT LINKS =================
+    match /parentStudentLinks/{linkId} {
+      allow read: if signedIn() && (
+        resource.data.parentUserId == request.auth.uid ||
+        resource.data.schoolId == activeSchool()
+      );
+
+      allow create: if signedIn() && (
+        request.resource.data.parentUserId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+
+      allow update, delete: if signedIn() && (
+        resource.data.parentUserId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+    }
+
+    // ================= STUDENTS =================
+    match /students/{studentId} {
+      // Staff can read students in their school
+      // Parents can read their own children
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        request.auth.uid in resource.data.parentIds
+      );
+
+      allow create: if signedIn() && 
+        (isSchoolAdmin() || isTeacher()) && 
+        request.resource.data.schoolId == activeSchool();
+
+      // Schools can update any student
+      // Parents can update parentIds to add themselves (via linking)
+      allow update: if signedIn() && (
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (isParent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parentIds']))
+      );
+
+      allow delete: if isSchoolAdmin() && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= CLASSES =================
+    match /classes/{classId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        (isParent() && exists(/databases/$(database)/documents/class_rosters/$(classId + '_' + request.auth.uid)))
+      );
+
+      allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
+
+      allow update: if signedIn() && resource.data.schoolId == activeSchool() && (
+        isSchoolAdmin() ||
+        (isTeacher() && request.auth.uid in resource.data.teacherIds)
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= CLASS ROSTERS =================
+    match /class_rosters/{rosterId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        (isParent() && isParentOfStudent(resource.data.studentId))
+      );
+
+      allow create, update, delete: if signedIn() && (
+        isSchoolAdmin() ||
+        (isTeacher() && resource.data.schoolId == activeSchool())
+      );
+    }
+
+    // ================= EVENTS =================
+    match /events/{eventId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if isSchoolAdmin() && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= ANNOUNCEMENTS =================
+    match /announcements/{announcementId} {
+      // Parents can read non-teachersOnly announcements for their school
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        (isParent() && resource.data.teachersOnly == false)
+      );
+
+      allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if isSchoolAdmin() && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= GRADE ASSIGNMENTS =================
+    match /gradeAssignments/{assignmentId} {
+      // Staff can read assignments in their school
+      // Parents can read assignments in their child's classes
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        isParent()
+      );
+
+      allow create: if signedIn() && 
+        (isSchoolAdmin() || isTeacher()) && 
+        request.resource.data.schoolId == activeSchool();
+
+      allow update, delete: if signedIn() && (
+        isSchoolAdmin() ||
+        (isTeacher() && resource.data.schoolId == activeSchool())
+      );
+    }
+
+    // ================= STUDENT GRADES =================
+    match /studentGrades/{gradeId} {
+      // Staff can read grades in their school
+      // Parents can ONLY read grades for their own children
+      allow read: if signedIn() && (
+        (isStaff() && activeSchool() != null) ||
+        (isParent() && isParentOfStudent(resource.data.studentId))
+      );
+
+      allow create, update: if signedIn() && (
+        isSchoolAdmin() ||
+        (isTeacher() && activeSchool() != null)
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= GRADE OVERRIDES =================
+    match /gradeOverrides/{overrideId} {
+      allow read: if signedIn() && (
+        isStaff() ||
+        (isParent() && isParentOfStudent(resource.data.studentId))
+      );
+
+      allow create, update: if signedIn() && (isSchoolAdmin() || isTeacher());
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= CLASS GRADE SETTINGS =================
+    match /classGradeSettings/{classId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && (isSchoolAdmin() || isTeacher());
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= SUB REQUESTS =================
+    match /subRequests/{requestId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+
+      allow create: if signedIn() && 
+        (isSchoolAdmin() || isTeacher()) && 
+        request.resource.data.schoolId == activeSchool();
+
+      allow update: if signedIn() && resource.data.schoolId == activeSchool() && (
+        isSchoolAdmin() ||
+        isTeacher() ||
+        isSub()
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= TEACHER AVAILABILITY =================
+    match /teacherAvailability/{availId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+
+      allow create: if signedIn() && 
+        (isTeacher() || isSchoolAdmin()) &&
+        request.resource.data.schoolId == activeSchool();
+
+      allow update: if signedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+
+      allow delete: if signedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+    }
+
+    // ================= ATTENDANCE =================
+    match /attendance/{attendanceId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        (isParent() && isParentOfStudent(resource.data.studentId))
+      );
+
+      allow create, update: if signedIn() && (
+        isSchoolAdmin() ||
+        (isTeacher() && resource.data.schoolId == activeSchool())
+      );
+
+      allow delete: if isSchoolAdmin();
+    }
+
+    // ================= BELL SCHEDULES =================
+    match /bellSchedules/{scheduleId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      allow create, update, delete: if isSchoolAdmin() && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= DOCUMENTS =================
+    match /documents/{docId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() &&
+        (resource.data.teachersOnly == false || isStaff())
+      );
+
+      allow create: if signedIn() && 
+        (isSchoolAdmin() || isTeacher()) && 
+        request.resource.data.schoolId == activeSchool();
+
+      allow update, delete: if signedIn() && (
+        isSchoolAdmin() ||
+        (isTeacher() && resource.data.uploadedByUserId == request.auth.uid)
+      );
+    }
+
+    // ================= CONVERSATIONS =================
+    match /conversations/{conversationId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participantIds;
+      allow create: if signedIn() && request.auth.uid in request.resource.data.participantIds;
+      allow update: if signedIn() && request.auth.uid in resource.data.participantIds;
+      allow delete: if signedIn() && (
+        request.auth.uid in resource.data.participantIds &&
+        resource.data.createdByUserId == request.auth.uid
+      );
+    }
+
+    // ================= MESSAGES =================
+    match /messages/{messageId} {
+      allow read: if signedIn() && (
+        request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participantIds
+      );
+
+      allow create: if signedIn() && request.resource.data.senderUserId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.senderUserId == request.auth.uid;
+    }
+
+    // ================= SUPPORT CLAIMS =================
+    match /supportClaims/{claimId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+      allow delete: if false; // Support claims cannot be deleted
+    }
+
+    // ================= SUBSCRIPTIONS =================
+    match /subscriptions/{subscriptionId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        resource.data.userId == request.auth.uid
+      );
+      allow create, update, delete: if false; // Managed by Cloud Functions only
+    }
+
+    // ================= PROMO CODES =================
+    match /promoCodes/{codeId} {
+      allow read: if signedIn();
+      allow create, update, delete: if false; // Admin only via Firebase Console
+    }
+
+    // ================= PROMO CODE USAGE =================
+    match /promoCodeUsage/{usageId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ================= SUB REVIEWS (ranking) =================
+    // District admins can read subReviews for any school in their district
+    function isDistrictAdminForSchool(schoolId) {
+      return signedIn() && role() == "district" &&
+        userDoc().data.keys().hasAny(["districtId"]) &&
+        userDoc().data.districtId != null &&
+        userDoc().data.districtId != "" &&
+        exists(/databases/$(database)/documents/districts/$(userDoc().data.districtId)) &&
+        get(/databases/$(database)/documents/districts/$(userDoc().data.districtId)).data.ownerUid == request.auth.uid &&
+        schoolId in get(/databases/$(database)/documents/districts/$(userDoc().data.districtId)).data.get("schoolIds", []);
+    }
+    match /subReviews/{reviewId} {
+      allow read: if signedIn() && (
+        resource.data.schoolId == activeSchool() ||
+        isDistrictAdminForSchool(resource.data.schoolId)
+      );
+      allow create: if signedIn() && isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && isSchoolAdmin() && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= CONTACT FORM SUBMISSIONS =================
+    match /contactFormSubmissions/{id} {
+      allow read: if signedIn() && isSchoolAdmin();
+      allow create: if false; // Cloud Function (admin) only
+      allow update, delete: if false;
+    }
+
+    // ================= RECOMMENDED ACTIVITIES =================
+    match /recommendedActivities/{activityId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && (
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (isTeacher() && resource.data.teacherId == request.auth.uid)
+      );
+    }
+  }
+}

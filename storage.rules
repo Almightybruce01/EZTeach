@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // School documents — scoped by schoolId. Validate size (50MB).
+    // For production, consider uploads via Cloud Functions to enforce school access.
+    match /documents/{schoolId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if request.auth != null;
+    }
+
+    // School logos — public read; authenticated write.
+    match /schoolLogos/{schoolId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if request.auth != null;
+    }
+  }
+}
