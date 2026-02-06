@@ -262,6 +262,10 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(3)
+                    if let url = ann.attachmentUrl, let u = URL(string: url) {
+                        AsyncImage(url: u) { img in img.resizable().scaledToFill() } placeholder: { Color.gray.opacity(0.2) }
+                            .frame(maxWidth: 120, maxHeight: 80).clipped().cornerRadius(8)
+                    }
                 }
 
                 Spacer()
@@ -341,7 +345,7 @@ struct ContentView: View {
                 var list = docs.map { SchoolEvent.fromDoc($0, schoolId: schoolId) }
                     .filter { $0.date >= startOfToday }
                     .sorted { $0.date < $1.date }
-                if role != "school" && role != "teacher" {
+                if role != "school" && role != "teacher" && role != "librarian" {
                     list = list.filter { !$0.teachersOnly }
                 }
                 events = list
@@ -365,6 +369,7 @@ struct ContentView: View {
                         schoolId: schoolId,
                         title: doc["title"] as? String ?? "",
                         body: doc["body"] as? String ?? "",
+                        attachmentUrl: doc["attachmentUrl"] as? String,
                         isActive: true
                     )
                 }

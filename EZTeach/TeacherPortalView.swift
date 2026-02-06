@@ -22,6 +22,7 @@ struct TeacherPortalView: View {
     @State private var roomNumber: String = ""
     @State private var officeHours: String = ""
     @State private var email: String = ""
+    @State private var photoUrl: String = ""
 
     private let db = Firestore.firestore()
 
@@ -104,10 +105,12 @@ struct TeacherPortalView: View {
         .sheet(isPresented: $showEditProfile) {
             EditTeacherProfileView(
                 teacherId: teacher.id,
+                teacherUserId: teacher.userId,
                 currentBio: bio,
                 currentRoomNumber: roomNumber,
                 currentOfficeHours: officeHours,
-                currentEmail: email
+                currentEmail: email,
+                currentPhotoUrl: photoUrl.isEmpty ? nil : photoUrl
             ) {
                 loadTeacherProfile()
             }
@@ -258,6 +261,7 @@ struct TeacherPortalView: View {
             roomNumber = data["roomNumber"] as? String ?? ""
             officeHours = data["officeHours"] as? String ?? ""
             email = data["email"] as? String ?? ""
+            photoUrl = data["photoUrl"] as? String ?? ""
         }
     }
 }
@@ -413,18 +417,143 @@ struct TeacherSubPlansView: View {
     }
 }
 
-// MARK: - Teacher Schedule View
+// MARK: - Teacher Class Schedule View
 struct TeacherScheduleView: View {
     let teacher: Teacher
 
+    @State private var schedule: BellSchedule?
+    @State private var classes: [SchoolClass] = []
+    @State private var isLoading = true
+
+    private let db = Firestore.firestore()
+
     var body: some View {
-        List {
-            Section {
-                Text("Schedule information will appear here.")
-                    .foregroundColor(.secondary)
+        Group {
+            if isLoading {
+                ProgressView("Loading schedule...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let sched = schedule {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Daily Bell Schedule")
+                            .font(.headline)
+                        teacherScheduleGrid(sched)
+                        if !classes.isEmpty {
+                            Divider()
+                            Text("Your Classes")
+                                .font(.headline)
+                            ForEach(classes) { cls in
+                                HStack {
+                                    Image(systemName: "book.fill")
+                                        .foregroundColor(EZTeachColors.accent)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(cls.name)
+                                            .font(.subheadline.weight(.medium))
+                                        Text(GradeUtils.label(cls.grade))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .background(EZTeachColors.secondaryBackground)
+                                .cornerRadius(10)
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("No schedule available")
+                        .font(.headline)
+                    Text("Your school has not set up a bell schedule yet.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .navigationTitle("Schedule")
+        .navigationTitle("Class Schedule")
+        .onAppear(perform: loadData)
+    }
+
+    private func teacherScheduleGrid(_ sched: BellSchedule) -> some View {
+        let slots = timeSlots(from: sched.effectiveStart, to: sched.effectiveEnd, step: sched.slotSize)
+        return VStack(spacing: 0) {
+            ForEach(slots, id: \.self) { slotTime in
+                let period = sched.periods.first { $0.startTime <= slotTime && $0.endTime > slotTime }
+                let isStart = sched.periods.contains { $0.startTime == slotTime }
+                HStack(alignment: .top, spacing: 12) {
+                    Text(slotTime)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(.secondary)
+                        .frame(width: 40, alignment: .trailing)
+                    if let p = period, isStart {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(periodColor(p.periodType))
+                                .frame(width: 8, height: 8)
+                            Text(p.name + (p.gradeLabel.isEmpty ? "" : " (\(p.gradeLabel))"))
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(periodColor(p.periodType).opacity(0.15))
+                        .cornerRadius(8)
+                    }
+                }
+                .frame(minHeight: isStart ? 48 : 24)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func periodColor(_ type: BellPeriod.PeriodType) -> Color {
+        switch type {
+        case .breakfast: return .orange
+        case .intercom: return .purple
+        case .homeroom: return EZTeachColors.accent
+        case .classTime: return EZTeachColors.navy
+        case .lunch: return .green
+        case .dismissal: return .red
+        default: return EZTeachColors.accent
+        }
+    }
+
+    private func timeSlots(from start: String, to end: String, step: Int) -> [String] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        guard let startDate = formatter.date(from: start),
+              let endDate = formatter.date(from: end) else { return [] }
+        var slots: [String] = []
+        var current = startDate
+        let cal = Calendar.current
+        while current < endDate {
+            slots.append(formatter.string(from: current))
+            current = cal.date(byAdding: .minute, value: step, to: current) ?? current
+        }
+        return slots
+    }
+
+    private func loadData() {
+        let sid = teacher.schoolId
+        db.collection("bellSchedules").whereField("schoolId", isEqualTo: sid).getDocuments { snap, _ in
+            let all = snap?.documents.compactMap { BellSchedule.fromDocument($0) } ?? []
+            schedule = all.first { $0.isDefault } ?? all.first
+            db.collection("classes").whereField("teacherIds", arrayContains: teacher.userId).getDocuments { cSnap, _ in
+                classes = cSnap?.documents.compactMap { doc -> SchoolClass? in
+                    let d = doc.data()
+                    let ct = SchoolClass.ClassType(rawValue: d["classType"] as? String ?? "regular") ?? .regular
+                    return SchoolClass(id: doc.documentID, name: d["name"] as? String ?? "", grade: d["grade"] as? Int ?? 0, schoolId: d["schoolId"] as? String ?? "", teacherIds: d["teacherIds"] as? [String] ?? [], classType: ct)
+                }.sorted { $0.name < $1.name } ?? []
+                isLoading = false
+            }
+        }
     }
 }
 

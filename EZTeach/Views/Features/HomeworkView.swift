@@ -12,6 +12,7 @@ import FirebaseFirestore
 struct HomeworkView: View {
     let schoolId: String
     let classId: String?
+    var userRole: String = "teacher"
     
     @State private var assignments: [HomeworkAssignment] = []
     @State private var isLoading = true
@@ -31,7 +32,9 @@ struct HomeworkView: View {
                         ForEach(assignments) { assignment in
                             HomeworkRow(assignment: assignment)
                         }
-                        .onDelete(perform: deleteAssignment)
+                        .onDelete { offsets in
+                            if userRole == "school" || userRole == "teacher" { deleteAssignment(at: offsets) }
+                        }
                     }
                     .listStyle(.plain)
                 }
@@ -39,11 +42,13 @@ struct HomeworkView: View {
             .background(EZTeachColors.background)
             .navigationTitle("Homework")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAddAssignment = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
+                if userRole == "school" || userRole == "teacher" {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showAddAssignment = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                        }
                     }
                 }
             }

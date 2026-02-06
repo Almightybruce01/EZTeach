@@ -11,8 +11,16 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 const Stripe = require('stripe');
 const sgMail = require('@sendgrid/mail');
+const bcrypt = require('bcryptjs');
+
+const STUDENT_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+function generateStudentCode() {
+  const bytes = crypto.randomBytes(8);
+  return Array.from(bytes).map(b => STUDENT_CODE_CHARS[b % 36]).join('');
+}
 
 admin.initializeApp();
 
@@ -25,10 +33,6 @@ const runtimeOpts = { runtime: 'nodejs20' };
 const stripe = new Stripe(functions.config().stripe?.secret_key || 'sk_test_placeholder', {
   apiVersion: '2023-10-16',
 });
-
-// Product IDs from Stripe (School monthly $75/mo, School yearly $750/yr)
-const PROD_MONTHLY = 'prod_TsvP71E7nTlzCb';
-const PROD_YEARLY = 'prod_TsvTxl5KTc3bcB';
 
 // Initialize SendGrid (set your key with: firebase functions:config:set sendgrid.api_key="SG...")
 sgMail.setApiKey(functions.config().sendgrid?.api_key || 'SG.placeholder');
@@ -52,6 +56,12 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
   const uid = context.auth.uid;
 
   try {
+    const userDoc = await db.collection('users').doc(uid).get();
+    const userData = userDoc.data();
+    if (!userData || !userData.email) {
+      throw new functions.https.HttpsError('failed-precondition', 'User account missing email. Please add email in account settings.');
+    }
+
     // Validate promo code (yearly only, one use per school)
     let discountPercent = 0;
     if (plan === 'yearly' && promoCode) {
@@ -73,8 +83,6 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
     }
 
     // Get or create Stripe customer
-    const userDoc = await db.collection('users').doc(uid).get();
-    const userData = userDoc.data();
     let customerId = userData.stripeCustomerId;
 
     if (!customerId) {
@@ -87,12 +95,13 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
     }
 
     // Create checkout session ($75/mo or $750/yr)
+    // Uses product_data so no pre-created Stripe products needed
     const isYearly = plan === 'yearly';
     const lineItem = isYearly
       ? {
           price_data: {
             currency: 'usd',
-            product: PROD_YEARLY,
+            product_data: { name: 'EZTeach School - Yearly' },
             unit_amount: 75000, // $750
             recurring: { interval: 'year' },
           },
@@ -101,7 +110,7 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
       : {
           price_data: {
             currency: 'usd',
-            product: PROD_MONTHLY,
+            product_data: { name: 'EZTeach School - Monthly' },
             unit_amount: 7500, // $75
             recurring: { interval: 'month' },
           },
@@ -130,11 +139,15 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
 
 /**
  * One-time setup: Create promo code documents in Firestore.
- * Call from app or: firebase functions:shell then setupPromoCodes()
+ * Restricted to admin UID. Set: firebase functions:config:set app.admin_uid="YOUR_UID"
  */
 exports.setupPromoCodes = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
+  }
+  const adminUid = functions.config().app?.admin_uid;
+  if (adminUid && context.auth.uid !== adminUid) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
   const col = db.collection('promoCodes');
   await col.doc('EZT6X7K2M9QPN4LR').set({ isActive: true, yearlyOnly: true, discountPercent: 1, description: '100% off yearly' });
@@ -195,6 +208,13 @@ exports.formGridWebhook = functions.runWith(runtimeOpts).https.onRequest(async (
   if (req.method !== 'POST') {
     return res.status(405).send('Method not allowed');
   }
+  const webhookSecret = functions.config().formgrid?.webhook_secret;
+  if (webhookSecret) {
+    const provided = req.headers['x-webhook-secret'] || req.query?.secret || '';
+    if (provided !== webhookSecret) {
+      return res.status(401).send('Unauthorized');
+    }
+  }
   const data = req.body || {};
   const email = data.email || data.Email || data.from || 'unknown';
   const message = data.message || data.Message || data.body || JSON.stringify(data);
@@ -223,10 +243,10 @@ exports.formGridWebhook = functions.runWith(runtimeOpts).https.onRequest(async (
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #0a1f44;">New Contact Form Submission</h1>
-            <p><strong>From:</strong> ${email}</p>
-            ${name ? `<p><strong>Name:</strong> ${name}</p>` : ''}
+            <p><strong>From:</strong> ${escapeHtml(email)}</p>
+            ${name ? `<p><strong>Name:</strong> ${escapeHtml(name)}</p>` : ''}
             <p><strong>Message:</strong></p>
-            <p style="background: #f5f5f5; padding: 15px; border-radius: 8px;">${String(message).replace(/</g, '&lt;')}</p>
+            <p style="background: #f5f5f5; padding: 15px; border-radius: 8px;">${escapeHtml(String(message))}</p>
           </div>
         `,
       });
@@ -238,14 +258,57 @@ exports.formGridWebhook = functions.runWith(runtimeOpts).https.onRequest(async (
 });
 
 async function handleSubscriptionCreated(session) {
-  const { schoolId, userId, promoCode } = session.metadata || {};
+  const { schoolId, userId, promoCode, districtId, numberOfSchools, pricePerSchool } = session.metadata || {};
 
+  // District subscription: cover ALL schools in the district
+  if (districtId) {
+    const districtDoc = await db.collection('districts').doc(districtId).get();
+    if (!districtDoc.exists) {
+      console.warn('District not found:', districtId);
+      return;
+    }
+    const districtData = districtDoc.data();
+    const schoolIds = districtData.schoolIds || [];
+
+    const subscription = await stripe.subscriptions.retrieve(session.subscription);
+    const interval = subscription?.items?.data?.[0]?.plan?.interval === 'year' ? 12 : 1;
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + interval);
+
+    const batch = db.batch();
+    batch.update(db.collection('districts').doc(districtId), {
+      subscriptionActive: true,
+      stripeSubscriptionId: session.subscription,
+      stripeCustomerId: session.customer,
+      subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
+    });
+
+    for (const sid of schoolIds) {
+      batch.update(db.collection('schools').doc(sid), {
+        districtId,
+        districtCovered: true,
+        subscriptionActive: true,
+        subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
+      });
+    }
+
+    await batch.commit();
+    console.log('District subscription activated:', districtId, schoolIds.length, 'schools covered');
+    if (userId) {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        await sendSubscriptionConfirmationEmail(userDoc.data().email, session);
+      }
+    }
+    return;
+  }
+
+  // School subscription (single school)
   if (!schoolId || !userId) {
     console.warn('Missing metadata in checkout session:', session.id);
     return;
   }
 
-  // Record promo code usage (one-time use per school)
   if (promoCode) {
     const code = String(promoCode).toUpperCase().trim();
     if (code) {
@@ -258,13 +321,11 @@ async function handleSubscriptionCreated(session) {
     }
   }
 
-  // Determine billing interval from the subscription
   const subscription = await stripe.subscriptions.retrieve(session.subscription);
   const interval = subscription?.items?.data?.[0]?.plan?.interval === 'year' ? 12 : 1;
   const endDate = new Date();
   endDate.setMonth(endDate.getMonth() + interval);
 
-  // Update school subscription status
   await db.collection('schools').doc(schoolId).update({
     subscriptionActive: true,
     subscriptionStartDate: admin.firestore.Timestamp.now(),
@@ -273,30 +334,55 @@ async function handleSubscriptionCreated(session) {
     stripeCustomerId: session.customer,
   });
 
-  // Update user
   await db.collection('users').doc(userId).update({
     subscriptionActive: true,
   });
 
-  // Send confirmation email
   const userDoc = await db.collection('users').doc(userId).get();
   await sendSubscriptionConfirmationEmail(userDoc.data().email, session);
 }
 
 async function handleInvoicePaid(invoice) {
   const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
-  const schoolId = subscription.metadata.schoolId;
+  const meta = subscription.metadata || {};
+  const districtId = meta.districtId;
+  const schoolId = meta.schoolId;
+
+  const endDate = new Date(subscription.current_period_end * 1000);
+
+  if (districtId) {
+    const districtDoc = await db.collection('districts').doc(districtId).get();
+    if (districtDoc.exists) {
+      const schoolIds = districtDoc.data().schoolIds || [];
+      const batch = db.batch();
+      batch.update(db.collection('districts').doc(districtId), {
+        subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
+        lastPaymentDate: admin.firestore.Timestamp.now(),
+      });
+      for (const sid of schoolIds) {
+        batch.update(db.collection('schools').doc(sid), {
+          subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
+        });
+      }
+      await batch.commit();
+    }
+    if (meta.userId) {
+      const userDoc = await db.collection('users').doc(meta.userId).get();
+      if (userDoc.exists) await sendPaymentReceiptEmail(userDoc.data().email, invoice);
+    }
+    return;
+  }
 
   if (schoolId) {
-    const endDate = new Date(subscription.current_period_end * 1000);
     await db.collection('schools').doc(schoolId).update({
       subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
       lastPaymentDate: admin.firestore.Timestamp.now(),
     });
 
-    // Send payment receipt
-    const userDoc = await db.collection('users').doc(subscription.metadata.userId).get();
-    await sendPaymentReceiptEmail(userDoc.data().email, invoice);
+    if (meta.userId) {
+      const userDoc = await db.collection('users').doc(meta.userId).get();
+      if (userDoc.exists) await sendPaymentReceiptEmail(userDoc.data().email, invoice);
+    }
   }
 }
 
@@ -311,12 +397,71 @@ async function handlePaymentFailed(invoice) {
 }
 
 async function handleSubscriptionCancelled(subscription) {
-  const schoolId = subscription.metadata.schoolId;
+  const meta = subscription.metadata || {};
+  const districtId = meta.districtId;
+  const schoolId = meta.schoolId;
+  const userId = meta.userId;
+
+  if (districtId) {
+    const districtDoc = await db.collection('districts').doc(districtId).get();
+    if (districtDoc.exists) {
+      const districtData = districtDoc.data();
+      const schoolIds = districtData.schoolIds || [];
+      const batch = db.batch();
+      batch.update(db.collection('districts').doc(districtId), { subscriptionActive: false });
+      for (const sid of schoolIds) {
+        batch.update(db.collection('schools').doc(sid), {
+          subscriptionActive: false,
+          districtCovered: false,
+        });
+      }
+      await batch.commit();
+      if (userId) {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          const email = userDoc.data().email;
+          if (email) {
+            await sendSubscriptionCancelledEmail(email, districtData.name || 'Your district');
+          }
+        }
+      }
+    }
+    return;
+  }
 
   if (schoolId) {
-    await db.collection('schools').doc(schoolId).update({
-      subscriptionActive: false,
-    });
+    const schoolDoc = await db.collection('schools').doc(schoolId).get();
+    const schoolName = schoolDoc.exists ? schoolDoc.data().name || 'Your school' : 'Your school';
+    await db.collection('schools').doc(schoolId).update({ subscriptionActive: false });
+    if (userId) {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        const email = userDoc.data().email;
+        if (email) await sendSubscriptionCancelledEmail(email, schoolName);
+      }
+    }
+  }
+}
+
+async function sendSubscriptionCancelledEmail(email, orgName) {
+  const msg = {
+    to: email,
+    from: FROM_EMAIL,
+    subject: 'EZTeach Subscription Cancelled',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0a1f44;">Subscription Cancelled</h1>
+        <p>Your EZTeach subscription for <strong>${orgName}</strong> has been cancelled.</p>
+        <p>You can resubscribe at any time through our website to restore access.</p>
+        <p>If you have questions, please contact our support team.</p>
+        <p>Best regards,<br>The EZTeach Team</p>
+      </div>
+    `,
+  };
+  try {
+    await sgMail.send(msg);
+  } catch (e) {
+    console.error('Error sending subscription cancelled email:', e);
   }
 }
 
@@ -388,6 +533,12 @@ exports.createDistrictCheckout = functions.runWith(runtimeOpts).https.onCall(asy
         numberOfSchools: numberOfSchools.toString(),
         pricePerSchool: pricePerSchool.toString(),
       },
+      subscription_data: {
+        metadata: {
+          districtId,
+          userId: uid,
+        },
+      },
     });
 
     return { sessionId: session.id, url: session.url };
@@ -439,27 +590,42 @@ exports.onDistrictCreated = functions.runWith(runtimeOpts).firestore
 // =========================================================
 
 /**
- * Send welcome email when account is created
+ * Send welcome email when any account is created
  */
 exports.onUserCreated = functions.runWith(runtimeOpts).firestore
   .document('users/{userId}')
   .onCreate(async (snap, context) => {
     const userData = snap.data();
+    const email = userData.email;
+    if (!email || typeof email !== 'string') {
+      console.warn('onUserCreated: no email for user', context.params.userId);
+      return;
+    }
+
+    const name = userData.fullName || userData.firstName || userData.name || 'there';
+    const role = userData.role || 'user';
+    let roleSpecificHtml = '';
+
+    if (role === 'school' && userData.activeSchoolId) {
+      const schoolSnap = await db.collection('schools').doc(userData.activeSchoolId).get();
+      const schoolCode = schoolSnap.exists ? (schoolSnap.data().schoolCode || '') : '';
+      roleSpecificHtml = `
+        <p>Your school code: <strong>${schoolCode || 'Check your school settings in the app'}</strong></p>
+        <p>Share this code with your teachers and staff so they can join your school.</p>
+      `;
+    }
 
     const msg = {
-      to: userData.email,
+      to: email,
       from: FROM_EMAIL,
       subject: 'Welcome to EZTeach!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #0a1f44;">Welcome to EZTeach!</h1>
-          <p>Hi ${userData.firstName || 'there'},</p>
+          <p>Hi ${name},</p>
           <p>Thank you for creating an account with EZTeach. We're excited to have you on board!</p>
-          <p>Your account type: <strong>${userData.role}</strong></p>
-          ${userData.role === 'school' ? `
-            <p>Your school code: <strong>${userData.schoolCode || 'Check your school settings'}</strong></p>
-            <p>Share this code with your teachers and staff so they can join your school.</p>
-          ` : ''}
+          <p>Your account type: <strong>${role}</strong></p>
+          ${roleSpecificHtml}
           <p>If you have any questions, please don't hesitate to reach out to our support team.</p>
           <p>Best regards,<br>The EZTeach Team</p>
         </div>
@@ -468,10 +634,624 @@ exports.onUserCreated = functions.runWith(runtimeOpts).firestore
 
     try {
       await sgMail.send(msg);
-      console.log('Welcome email sent to:', userData.email);
+      console.log('Welcome email sent to:', email);
     } catch (error) {
       console.error('Error sending welcome email:', error);
     }
+  });
+
+/**
+ * On student created: set password hash, email student if they have email, notify school admin and parents.
+ */
+exports.onStudentCreated = functions.runWith(runtimeOpts).firestore
+  .document('students/{studentId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const ref = snap.ref;
+    const firstName = data.firstName || '';
+    const lastName = data.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim() || 'Student';
+    const studentCode = data.studentCode || '';
+    const studentEmail = data.email || '';
+    const schoolId = data.schoolId || '';
+    const parentIds = data.parentIds || [];
+
+    const code = (studentCode || '').toString().toUpperCase().trim();
+    const defaultPassword = code + '!';
+
+    const updates = {};
+    if (code && code !== studentCode) {
+      updates.studentCode = code;
+    }
+    if (!data.passwordHash) {
+      updates.passwordHash = bcrypt.hashSync(defaultPassword, 10);
+    }
+    if (Object.keys(updates).length > 0) {
+      await ref.update(updates);
+    }
+
+    // 2. If student has email, send them their login credentials
+    if (studentEmail && typeof studentEmail === 'string' && studentEmail.includes('@')) {
+      const defaultPassword = code + '!';
+      const msg = {
+        to: studentEmail,
+        from: FROM_EMAIL,
+        subject: 'Welcome to EZTeach - Your Student Login',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #0a1f44;">Welcome to EZTeach!</h1>
+            <p>Hi ${fullName},</p>
+            <p>Your student account has been created. Here are your login details:</p>
+            <p><strong>Student ID:</strong> ${code}</p>
+            <p><strong>Default password:</strong> ${code}!</p>
+            <p>Sign in to the EZTeach app with Student Login. Enter your Student ID and password (default is Student ID + !).</p>
+            <p>If you have any questions, please ask your teacher or school administrator.</p>
+            <p>Best regards,<br>The EZTeach Team</p>
+          </div>
+        `,
+      };
+      try {
+        await sgMail.send(msg);
+        console.log('Student credentials email sent to:', studentEmail);
+      } catch (e) {
+        console.error('Error sending student credentials email:', e);
+      }
+    }
+
+    // 3. Notify school admin
+    if (!schoolId) return;
+    const schoolSnap = await db.collection('schools').doc(schoolId).get();
+    if (!schoolSnap.exists) return;
+    const schoolData = schoolSnap.data();
+    const ownerUid = schoolData.ownerUid;
+    if (!ownerUid) return;
+    const userSnap = await db.collection('users').doc(ownerUid).get();
+    if (!userSnap.exists) return;
+    const adminEmail = userSnap.data().email;
+    if (!adminEmail) return;
+
+    const adminMsg = {
+      to: adminEmail,
+      from: FROM_EMAIL,
+      subject: `EZTeach: New student added - ${fullName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #0a1f44;">New Student Added</h1>
+          <p>A new student has been added to your school:</p>
+          <p><strong>Name:</strong> ${fullName}</p>
+          <p><strong>Student ID:</strong> ${code}</p>
+          <p><strong>Default password:</strong> ${code}!</p>
+          <p>Students sign in with Student Login using Student ID and password. You can view and manage this student in the EZTeach app.</p>
+          <p>Best regards,<br>The EZTeach Team</p>
+        </div>
+      `,
+    };
+    try {
+      await sgMail.send(adminMsg);
+      console.log('School admin notified of new student:', adminEmail);
+    } catch (e) {
+      console.error('Error notifying school admin:', e);
+    }
+
+    // 4. Notify linked parents (if any exist at creation)
+    for (const parentUid of parentIds) {
+      const parentSnap = await db.collection('users').doc(parentUid).get();
+      if (!parentSnap.exists) continue;
+      const parentEmail = parentSnap.data().email;
+      if (!parentEmail) continue;
+      const parentMsg = {
+        to: parentEmail,
+        from: FROM_EMAIL,
+        subject: `EZTeach: ${fullName} has been added to school`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #0a1f44;">Student Added</h1>
+            <p>${fullName} has been added to the school roster.</p>
+          <p><strong>Student ID:</strong> ${code}</p>
+          <p><strong>Default password:</strong> ${code}!</p>
+          <p>Students sign in with Student Login. You can view their grades in the EZTeach app.</p>
+            <p>You can view their grades and info in the EZTeach app.</p>
+            <p>Best regards,<br>The EZTeach Team</p>
+          </div>
+        `,
+      };
+      try {
+        await sgMail.send(parentMsg);
+        console.log('Parent notified of new student:', parentEmail);
+      } catch (e) {
+        console.error('Error notifying parent:', e);
+      }
+    }
+  });
+
+/**
+ * When a student's email is added or changed after creation, send them their login credentials.
+ */
+exports.onStudentUpdated = functions.runWith(runtimeOpts).firestore
+  .document('students/{studentId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const prevEmail = (before.email || '').trim().toLowerCase();
+    const newEmail = (after.email || '').trim().toLowerCase();
+    if (!newEmail || !newEmail.includes('@') || prevEmail === newEmail) return;
+
+    const firstName = after.firstName || '';
+    const lastName = after.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim() || 'Student';
+    const studentCode = (after.studentCode || '').toString().toUpperCase().trim();
+
+    const msg = {
+      to: newEmail,
+      from: FROM_EMAIL,
+      subject: 'EZTeach - Your Student Login',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #0a1f44;">Welcome to EZTeach!</h1>
+          <p>Hi ${fullName},</p>
+          <p>Your student account has been set up. Here are your login details:</p>
+          <p><strong>Student ID:</strong> ${studentCode}</p>
+          <p><strong>Default password:</strong> ${studentCode}!</p>
+          <p>Sign in to the EZTeach app with Student Login using Student ID and password.</p>
+          <p>If you have any questions, please ask your teacher or school administrator.</p>
+          <p>Best regards,<br>The EZTeach Team</p>
+        </div>
+      `,
+    };
+    try {
+      await sgMail.send(msg);
+      console.log('Student credentials email sent (on update) to:', newEmail);
+    } catch (e) {
+      console.error('Error sending student credentials email:', e);
+    }
+  });
+
+/**
+ * When a video meeting is scheduled, email the host and all participants.
+ */
+exports.onVideoMeetingCreated = functions.runWith(runtimeOpts).firestore
+  .document('videoMeetings/{meetingId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    if ((data.status || '') !== 'scheduled') return;
+
+    const title = data.title || 'Video Meeting';
+    const scheduledAt = data.scheduledAt?.toDate?.() || new Date();
+    const meetingUrl = data.meetingUrl || '';
+    const meetingCode = data.meetingCode || '';
+    const duration = data.duration || 30;
+    const hostId = data.hostId || '';
+    const participantIds = data.participantIds || [];
+
+    const dateStr = scheduledAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const timeStr = scheduledAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    const sendMeetingEmail = async (toEmail, recipientName, isHost) => {
+      const msg = {
+        to: toEmail,
+        from: FROM_EMAIL,
+        subject: isHost ? `EZTeach: Meeting scheduled - ${title}` : `EZTeach: You're invited - ${title}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #0a1f44;">${isHost ? 'Meeting Scheduled' : 'Meeting Invitation'}</h1>
+            <p>Hi ${recipientName},</p>
+            <p>${isHost ? 'You have scheduled' : 'You have been invited to'} a video meeting:</p>
+            <p><strong>${title}</strong></p>
+            <p><strong>When:</strong> ${dateStr} at ${timeStr}</p>
+            <p><strong>Duration:</strong> ${duration} minutes</p>
+            ${meetingCode ? `<p><strong>Meeting Code:</strong> ${meetingCode}</p>` : ''}
+            ${meetingUrl ? `<p><a href="${meetingUrl}" style="color: #0a1f44;">Join Meeting</a></p>` : ''}
+            <p>Please show up a few minutes early. Open the EZTeach app to join when it's time.</p>
+            <p>Best regards,<br>The EZTeach Team</p>
+          </div>
+        `,
+      };
+      try {
+        await sgMail.send(msg);
+        console.log('Meeting email sent to:', toEmail);
+      } catch (e) {
+        console.error('Error sending meeting email:', e);
+      }
+    };
+
+    if (hostId) {
+      const hostSnap = await db.collection('users').doc(hostId).get();
+      if (hostSnap.exists) {
+        const hostData = hostSnap.data();
+        const hostEmail = hostData.email;
+        const hostName = hostData.fullName || hostData.firstName || 'Host';
+        if (hostEmail) await sendMeetingEmail(hostEmail, hostName, true);
+      }
+    }
+
+    for (const pid of participantIds) {
+      const userSnap = await db.collection('users').doc(pid).get();
+      if (!userSnap.exists) continue;
+      const userData = userSnap.data();
+      const email = userData.email;
+      const name = userData.fullName || userData.firstName || 'there';
+      if (email) await sendMeetingEmail(email, name, false);
+    }
+  });
+
+/**
+ * When an event or day off is added to the calendar, notify school staff.
+ */
+exports.onEventCreated = functions.runWith(runtimeOpts).firestore
+  .document('events/{eventId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const schoolId = data.schoolId || '';
+    const title = data.title || 'Event';
+    const type = data.type || 'event';
+    const teachersOnly = data.teachersOnly === true;
+
+    let dateStr = 'Soon';
+    const ts = data.date || data.startDate;
+    if (ts && ts.toDate) {
+      dateStr = ts.toDate().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    } else if (typeof ts === 'string') {
+      dateStr = ts;
+    }
+
+    const isDayOff = type === 'dayOff';
+    const subject = isDayOff ? `EZTeach: Day Off - ${title}` : `EZTeach: New Event - ${title}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0a1f44;">${isDayOff ? 'Day Off' : 'New Calendar Event'}</h1>
+        <p>A new ${isDayOff ? 'day off' : 'event'} has been added to the school calendar:</p>
+        <p><strong>${title}</strong></p>
+        <p><strong>Date:</strong> ${dateStr}</p>
+        ${teachersOnly ? '<p><em>Teachers and school accounts only</em></p>' : ''}
+        <p>View the calendar in the EZTeach app for details.</p>
+        <p>Best regards,<br>The EZTeach Team</p>
+      </div>
+    `;
+
+    const emailsToNotify = new Set();
+
+    if (schoolId) {
+      const schoolSnap = await db.collection('schools').doc(schoolId).get();
+      if (schoolSnap.exists) {
+        const ownerUid = schoolSnap.data().ownerUid;
+        if (ownerUid) {
+          const ownerSnap = await db.collection('users').doc(ownerUid).get();
+          if (ownerSnap.exists) {
+            const e = ownerSnap.data().email;
+            if (e) emailsToNotify.add(e);
+          }
+        }
+      }
+
+      const staffSnap = await db.collection('users').where('activeSchoolId', '==', schoolId).get();
+      staffSnap.docs.forEach(doc => {
+        const ud = doc.data();
+        const role = ud.role || '';
+        if (teachersOnly && role !== 'school' && role !== 'teacher') return;
+        const e = ud.email;
+        if (e) emailsToNotify.add(e);
+      });
+    }
+
+    for (const email of emailsToNotify) {
+      try {
+        await sgMail.send({ to: email, from: FROM_EMAIL, subject, html });
+        console.log('Event email sent to:', email);
+      } catch (e) {
+        console.error('Error sending event email:', e);
+      }
+    }
+  });
+
+/**
+ * When an announcement is posted, notify school staff and optionally parents.
+ */
+exports.onAnnouncementCreated = functions.runWith(runtimeOpts).firestore
+  .document('announcements/{announcementId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const schoolId = data.schoolId || '';
+    const title = data.title || 'New Announcement';
+    const body = (data.body || '').slice(0, 500);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0a1f44;">New Announcement</h1>
+        <p><strong>${title}</strong></p>
+        <p>${body}</p>
+        <p>View in the EZTeach app for full details.</p>
+        <p>Best regards,<br>The EZTeach Team</p>
+      </div>
+    `;
+
+    const emailsToNotify = new Set();
+    if (schoolId) {
+      const schoolSnap = await db.collection('schools').doc(schoolId).get();
+      if (schoolSnap.exists) {
+        const ownerUid = schoolSnap.data().ownerUid;
+        if (ownerUid) {
+          const u = await db.collection('users').doc(ownerUid).get();
+          if (u.exists && u.data().email) emailsToNotify.add(u.data().email);
+        }
+      }
+      const staffSnap = await db.collection('users').where('activeSchoolId', '==', schoolId).get();
+      staffSnap.docs.forEach(doc => {
+        const e = doc.data().email;
+        if (e) emailsToNotify.add(e);
+      });
+    }
+    for (const email of emailsToNotify) {
+      try {
+        await sgMail.send({ to: email, from: FROM_EMAIL, subject: `EZTeach: ${title}`, html });
+      } catch (e) { console.error('Announcement email error:', e); }
+    }
+  });
+
+/**
+ * When an emergency alert is created, notify school staff and parents.
+ */
+exports.onEmergencyAlertCreated = functions.runWith(runtimeOpts).firestore
+  .document('emergencyAlerts/{alertId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const schoolId = data.schoolId || '';
+    const title = data.title || 'EMERGENCY ALERT';
+    const message = data.message || '';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #c00;">⚠ ${title}</h1>
+        <p style="font-size: 16px;">${message}</p>
+        <p>Please check the EZTeach app immediately for updates.</p>
+        <p>Best regards,<br>The EZTeach Team</p>
+      </div>
+    `;
+
+    const emailsToNotify = new Set();
+    if (schoolId) {
+      const schoolSnap = await db.collection('schools').doc(schoolId).get();
+      if (schoolSnap.exists) {
+        const ownerUid = schoolSnap.data().ownerUid;
+        if (ownerUid) {
+          const u = await db.collection('users').doc(ownerUid).get();
+          if (u.exists && u.data().email) emailsToNotify.add(u.data().email);
+        }
+      }
+      const staffSnap = await db.collection('users').where('activeSchoolId', '==', schoolId).get();
+      staffSnap.docs.forEach(doc => { const e = doc.data().email; if (e) emailsToNotify.add(e); });
+
+      const studentsSnap = await db.collection('students').where('schoolId', '==', schoolId).get();
+      for (const s of studentsSnap.docs) {
+        const parentIds = s.data().parentIds || [];
+        for (const pid of parentIds) {
+          const u = await db.collection('users').doc(pid).get();
+          if (u.exists && u.data().email) emailsToNotify.add(u.data().email);
+        }
+      }
+    }
+    for (const email of emailsToNotify) {
+      try {
+        await sgMail.send({ to: email, from: FROM_EMAIL, subject: `[URGENT] EZTeach: ${title}`, html });
+      } catch (e) { console.error('Emergency alert email error:', e); }
+    }
+  });
+
+/**
+ * When attendance is marked absent, notify linked parents.
+ */
+exports.onAttendanceWritten = functions.runWith(runtimeOpts).firestore
+  .document('attendance/{attendanceId}')
+  .onWrite(async (change, context) => {
+    const snap = change.after.exists ? change.after : change.before;
+    if (!snap.exists) return;
+    const data = snap.data();
+    if ((data.status || '') !== 'absent') return;
+
+    const studentId = data.studentId || '';
+    const studentName = data.studentName || 'Your child';
+    const dateVal = data.date?.toDate?.() || new Date();
+    const dateStr = dateVal.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+    const studentDoc = await db.collection('students').doc(studentId).get();
+    if (!studentDoc.exists) return;
+    const parentIds = studentDoc.data().parentIds || [];
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0a1f44;">Attendance Notice</h1>
+        <p>${studentName} was marked <strong>absent</strong> on ${dateStr}.</p>
+        <p>If this is an error or you have questions, please contact the school.</p>
+        <p>Best regards,<br>The EZTeach Team</p>
+      </div>
+    `;
+
+    for (const pid of parentIds) {
+      const u = await db.collection('users').doc(pid).get();
+      if (!u.exists) continue;
+      const email = u.data().email;
+      if (!email) continue;
+      try {
+        await sgMail.send({ to: email, from: FROM_EMAIL, subject: `EZTeach: ${studentName} marked absent`, html });
+      } catch (e) { console.error('Attendance email error:', e); }
+    }
+  });
+
+/**
+ * When a video meeting is cancelled, notify participants.
+ */
+exports.onVideoMeetingUpdated = functions.runWith(runtimeOpts).firestore
+  .document('videoMeetings/{meetingId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if ((before.status || '') === 'cancelled') return;
+    if ((after.status || '') !== 'cancelled') return;
+
+    const title = after.title || 'Video Meeting';
+    const hostId = after.hostId || '';
+    const participantIds = after.participantIds || [];
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #0a1f44;">Meeting Cancelled</h1>
+        <p>The meeting <strong>${title}</strong> has been cancelled.</p>
+        <p>Check the EZTeach app for any rescheduled dates.</p>
+        <p>Best regards,<br>The EZTeach Team</p>
+      </div>
+    `;
+
+    const notify = async (uid) => {
+      const u = await db.collection('users').doc(uid).get();
+      if (u.exists && u.data().email) {
+        try {
+          await sgMail.send({ to: u.data().email, from: FROM_EMAIL, subject: `EZTeach: Meeting cancelled - ${title}`, html });
+        } catch (e) { console.error('Meeting cancelled email error:', e); }
+      }
+    };
+
+    for (const pid of participantIds) await notify(pid);
+  });
+
+/**
+ * Meeting reminders: 24 hours and 1 hour before scheduled meetings.
+ */
+exports.sendMeetingReminders = functions.runWith(runtimeOpts).pubsub
+  .schedule('0 * * * *') // Every hour
+  .timeZone('America/New_York')
+  .onRun(async (context) => {
+    const now = new Date();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const in1h = new Date(now.getTime() + 60 * 60 * 1000);
+    const window = 35 * 60 * 1000; // 35 min window
+
+    const meetingsSnap = await db.collection('videoMeetings')
+      .where('status', '==', 'scheduled')
+      .get();
+
+    for (const doc of meetingsSnap.docs) {
+      const data = doc.data();
+      const scheduledAt = data.scheduledAt?.toDate?.();
+      if (!scheduledAt || scheduledAt < now) continue;
+
+      const diff = scheduledAt.getTime() - now.getTime();
+      let reminderType = null;
+      if (diff >= 23 * 60 * 60 * 1000 && diff <= 25 * 60 * 60 * 1000) reminderType = '24h';
+      else if (diff >= 55 * 60 * 1000 && diff <= 65 * 60 * 1000) reminderType = '1h';
+
+      if (!reminderType) continue;
+
+      const key = `${doc.id}_${reminderType}`;
+      const reminderSent = await db.collection('meetingRemindersSent').doc(key).get();
+      if (reminderSent.exists) continue;
+
+      const title = data.title || 'Video Meeting';
+      const meetingUrl = data.meetingUrl || '';
+      const dateStr = scheduledAt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const timeStr = scheduledAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #0a1f44;">Meeting Reminder</h1>
+          <p>Your video meeting <strong>${title}</strong> is ${reminderType === '24h' ? 'in 24 hours' : 'in 1 hour'}.</p>
+          <p><strong>When:</strong> ${dateStr} at ${timeStr}</p>
+          ${meetingUrl ? `<p><a href="${meetingUrl}">Join Meeting</a></p>` : ''}
+          <p>Open the EZTeach app to join when it's time.</p>
+          <p>Best regards,<br>The EZTeach Team</p>
+        </div>
+      `;
+
+      const sendTo = async (uid) => {
+        const u = await db.collection('users').doc(uid).get();
+        if (u.exists && u.data().email) {
+          try {
+            await sgMail.send({
+              to: u.data().email,
+              from: FROM_EMAIL,
+              subject: `EZTeach Reminder: ${title} ${reminderType === '24h' ? '(24h)' : '(1h)'}`,
+              html,
+            });
+          } catch (e) { console.error('Meeting reminder error:', e); }
+        }
+      };
+
+      const hostId = data.hostId || '';
+      const participantIds = data.participantIds || [];
+      if (hostId) await sendTo(hostId);
+      for (const pid of participantIds) await sendTo(pid);
+
+      await db.collection('meetingRemindersSent').doc(key).set({ sentAt: admin.firestore.Timestamp.now() });
+    }
+    return null;
+  });
+
+/**
+ * Day-off reminder: notify staff the day before a day off.
+ */
+exports.sendDayOffReminders = functions.runWith(runtimeOpts).pubsub
+  .schedule('0 16 * * *') // 4 PM daily
+  .timeZone('America/New_York')
+  .onRun(async (context) => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStart = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 60 * 60 * 1000);
+
+    const eventsSnap = await db.collection('events')
+      .where('type', '==', 'dayOff')
+      .get();
+
+    for (const doc of eventsSnap.docs) {
+      const data = doc.data();
+      const ts = data.date || data.startDate;
+      let eventDate;
+      if (ts && ts.toDate) eventDate = ts.toDate();
+      else if (typeof ts === 'string') eventDate = new Date(ts);
+      else continue;
+
+      const eventDayStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+      if (eventDayStart < tomorrowStart || eventDayStart >= tomorrowEnd) continue;
+
+      const key = `${doc.id}_${eventDayStart.getTime()}`;
+      const reminderSent = await db.collection('dayOffRemindersSent').doc(key).get();
+      if (reminderSent.exists) continue;
+
+      const title = data.title || 'Day Off';
+      const schoolId = data.schoolId || '';
+      if (!schoolId) continue;
+
+      const emailsToNotify = new Set();
+      const staffSnap = await db.collection('users').where('activeSchoolId', '==', schoolId).get();
+      staffSnap.docs.forEach(d => { const e = d.data().email; if (e) emailsToNotify.add(e); });
+
+      const schoolSnap = await db.collection('schools').doc(schoolId).get();
+      if (schoolSnap.exists) {
+        const ownerUid = schoolSnap.data().ownerUid;
+        if (ownerUid) {
+          const u = await db.collection('users').doc(ownerUid).get();
+          if (u.exists && u.data().email) emailsToNotify.add(u.data().email);
+        }
+      }
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #0a1f44;">Reminder: Day Off Tomorrow</h1>
+          <p><strong>${title}</strong> is tomorrow.</p>
+          <p>Enjoy your day off!</p>
+          <p>Best regards,<br>The EZTeach Team</p>
+        </div>
+      `;
+
+      for (const email of emailsToNotify) {
+        try {
+          await sgMail.send({ to: email, from: FROM_EMAIL, subject: `EZTeach Reminder: ${title} tomorrow`, html });
+        } catch (e) { console.error('Day off reminder error:', e); }
+      }
+
+      await db.collection('dayOffRemindersSent').doc(key).set({ sentAt: admin.firestore.Timestamp.now() });
+    }
+    return null;
   });
 
 /**
@@ -591,6 +1371,64 @@ async function sendPaymentFailedEmail(email, invoice) {
   await sgMail.send(msg);
 }
 
+/**
+ * Callable: Send report card notification emails to a student's linked parents.
+ * Call from app when teacher/parent views report card and taps "Email to parents".
+ */
+exports.sendReportCardNotification = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+
+  const { studentId, studentName, overallGPA } = data || {};
+  if (!studentId || !studentName) {
+    throw new functions.https.HttpsError('invalid-argument', 'studentId and studentName required');
+  }
+
+  const studentDoc = await db.collection('students').doc(studentId).get();
+  if (!studentDoc.exists) throw new functions.https.HttpsError('not-found', 'Student not found');
+
+  const studentData = studentDoc.data();
+  const parentIds = studentData.parentIds || [];
+  if (parentIds.length === 0) {
+    return { success: true, sent: 0, message: 'No linked parents' };
+  }
+
+  const gpaStr = typeof overallGPA === 'number' ? `${overallGPA.toFixed(1)}%` : 'N/A';
+  let sent = 0;
+
+  for (const uid of parentIds) {
+    const userSnap = await db.collection('users').doc(uid).get();
+    if (!userSnap.exists) continue;
+    const email = userSnap.data().email;
+    if (!email) continue;
+
+    const name = userSnap.data().fullName || userSnap.data().firstName || 'Parent';
+    const msg = {
+      to: email,
+      from: FROM_EMAIL,
+      subject: `EZTeach: Report Card Available - ${studentName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #0a1f44;">Report Card Available</h1>
+          <p>Hi ${name},</p>
+          <p>The report card for <strong>${studentName}</strong> is now available.</p>
+          <p>Overall average: <strong>${gpaStr}</strong></p>
+          <p>View the full report card in the EZTeach app under your student's profile.</p>
+          <p>If you have questions, please contact your child's teacher.</p>
+          <p>Best regards,<br>The EZTeach Team</p>
+        </div>
+      `,
+    };
+    try {
+      await sgMail.send(msg);
+      sent++;
+    } catch (e) {
+      console.error('Error sending report card email:', e);
+    }
+  }
+
+  return { success: true, sent };
+});
+
 // =========================================================
 // SUPPORT NOTIFICATIONS
 // =========================================================
@@ -598,6 +1436,11 @@ async function sendPaymentFailedEmail(email, invoice) {
 /**
  * Notify support team when new claim is created
  */
+function escapeHtml(s) {
+  if (typeof s !== 'string') return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 exports.onSupportClaimCreated = functions.runWith(runtimeOpts).firestore
   .document('supportClaims/{claimId}')
   .onCreate(async (snap, context) => {
@@ -606,16 +1449,16 @@ exports.onSupportClaimCreated = functions.runWith(runtimeOpts).firestore
     const msg = {
       to: SUPPORT_EMAIL,
       from: FROM_EMAIL,
-      subject: `[EZTeach Support] New Claim: ${claimData.subject}`,
+      subject: `[EZTeach Support] New Claim: ${String(claimData.subject || '').slice(0, 100)}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #0a1f44;">New Support Claim</h1>
-          <p><strong>From:</strong> ${claimData.email}</p>
-          <p><strong>Category:</strong> ${claimData.category}</p>
-          <p><strong>Subject:</strong> ${claimData.subject}</p>
+          <p><strong>From:</strong> ${escapeHtml(claimData.email || '')}</p>
+          <p><strong>Category:</strong> ${escapeHtml(claimData.category || '')}</p>
+          <p><strong>Subject:</strong> ${escapeHtml(claimData.subject || '')}</p>
           <p><strong>Message:</strong></p>
-          <p style="background: #f5f5f5; padding: 15px; border-radius: 8px;">${claimData.message}</p>
-          <p><strong>Claim ID:</strong> ${context.params.claimId}</p>
+          <p style="background: #f5f5f5; padding: 15px; border-radius: 8px;">${escapeHtml(claimData.message || '')}</p>
+          <p><strong>Claim ID:</strong> ${escapeHtml(context.params.claimId)}</p>
         </div>
       `,
     };
@@ -674,6 +1517,847 @@ exports.validateSubscription = functions.runWith(runtimeOpts).https.onCall(async
 
   return { valid: false, reason: 'No active subscription' };
 });
+
+/**
+ * Get schools for Funday Friday dashboard (no auth required).
+ * Secured by ?key=SECRET. Set funday.secret in Firebase config.
+ * Usage: GET https://...cloudfunctions.net/getFundayFridaySchools?key=YOUR_SECRET
+ */
+exports.getFundayFridaySchools = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(204).send('');
+  }
+  const secret = functions.config().funday?.secret;
+  if (secret && req.query?.key !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const schoolsSnap = await db.collection('schools').get();
+    const schools = schoolsSnap.docs.map(d => {
+      const data = d.data();
+      return { id: d.id, name: data.name || 'Unnamed', city: data.city || '' };
+    });
+    const picksSnap = await db.collection('fundayFridayPicks').orderBy('createdAt', 'desc').limit(50).get();
+    const pickedIds = new Set();
+    const history = [];
+    picksSnap.docs.forEach(d => {
+      const d_ = d.data();
+      (d_.schoolIds || []).forEach(id => pickedIds.add(id));
+      const dt = d_.createdAt?.toDate?.();
+      history.push({
+        date: dt ? dt.toLocaleDateString() : '',
+        schoolName: (d_.schoolNames || [])[0] || d_.schoolName || 'School',
+        schoolCity: d_.schoolCity || ''
+      });
+    });
+    return res.json({ schools, pickedIds: [...pickedIds], history });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * Look up a student by code for parent linking. Parent must provide schoolId + studentCode.
+ * Returns student info only if school has active subscription.
+ */
+exports.lookupStudentForParentLink = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const userDoc = await db.collection('users').doc(context.auth.uid).get();
+  const role = userDoc.data()?.role;
+  if (role !== 'parent') throw new functions.https.HttpsError('permission-denied', 'Parent accounts only');
+
+  const { schoolId, studentCode } = data || {};
+  if (!schoolId || !studentCode || String(studentCode).length !== 8) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid school and 8-character student code required');
+  }
+
+  const code = String(studentCode).toUpperCase().trim();
+
+  const schoolDoc = await db.collection('schools').doc(schoolId).get();
+  if (!schoolDoc.exists) throw new functions.https.HttpsError('not-found', 'School not found');
+
+  const schoolData = schoolDoc.data();
+  const subActive = schoolData.subscriptionActive === true;
+  if (!subActive) {
+    throw new functions.https.HttpsError('failed-precondition', 'This school has not activated their subscription yet. Parents cannot link until the school subscribes. Ask the school administrator to complete their subscription.');
+  }
+
+  const studentsSnap = await db.collection('students')
+    .where('schoolId', '==', schoolId)
+    .where('studentCode', '==', code)
+    .limit(1)
+    .get();
+
+  if (studentsSnap.empty) {
+    throw new functions.https.HttpsError('not-found', 'No student found with this code at this school. Please check and try again.');
+  }
+
+  const doc = studentsSnap.docs[0];
+  const d = doc.data();
+  return {
+    id: doc.id,
+    firstName: d.firstName || '',
+    lastName: d.lastName || '',
+    gradeLevel: d.gradeLevel ?? 0,
+    studentCode: d.studentCode || code
+  };
+});
+
+/**
+ * Link parent to student. Call after lookupStudentForParentLink confirms student exists.
+ */
+exports.linkParentToStudent = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const role = userDoc.data()?.role;
+  if (role !== 'parent') throw new functions.https.HttpsError('permission-denied', 'Parent accounts only');
+
+  const { studentId, relationship, isPrimaryContact, canPickup, emergencyContact } = data || {};
+  if (!studentId) throw new functions.https.HttpsError('invalid-argument', 'Student ID required');
+
+  const studentDoc = await db.collection('students').doc(studentId).get();
+  if (!studentDoc.exists) throw new functions.https.HttpsError('not-found', 'Student not found');
+
+  const studentData = studentDoc.data();
+  const schoolId = studentData.schoolId;
+
+  const schoolDoc = await db.collection('schools').doc(schoolId).get();
+  if (!schoolDoc.exists) throw new functions.https.HttpsError('not-found', 'School not found');
+  if (schoolDoc.data().subscriptionActive !== true) {
+    throw new functions.https.HttpsError('failed-precondition', 'This school has not activated their subscription yet.');
+  }
+
+  const batch = db.batch();
+
+  const studentRef = db.collection('students').doc(studentId);
+  batch.update(studentRef, { parentIds: admin.firestore.FieldValue.arrayUnion(uid) });
+
+  const linkRef = db.collection('parentStudentLinks').doc();
+  batch.set(linkRef, {
+    parentUserId: uid,
+    studentId,
+    schoolId,
+    relationship: relationship || 'guardian',
+    isPrimaryContact: !!isPrimaryContact,
+    canPickup: canPickup !== false,
+    emergencyContact: !!emergencyContact,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  const parentQuery = await db.collection('parents').where('userId', '==', uid).limit(1).get();
+  if (!parentQuery.empty) {
+    batch.update(parentQuery.docs[0].ref, {
+      childrenIds: admin.firestore.FieldValue.arrayUnion(studentId),
+      schoolIds: admin.firestore.FieldValue.arrayUnion(schoolId)
+    });
+  }
+
+  const userRef = db.collection('users').doc(uid);
+  batch.update(userRef, {
+    activeSchoolId: schoolId,
+    joinedSchools: admin.firestore.FieldValue.arrayUnion({ id: schoolId, name: schoolDoc.data().name || '', city: schoolDoc.data().city || '' })
+  });
+
+  await batch.commit();
+
+  const parentEmail = userDoc.data().email;
+  const studentName = `${studentData.firstName || ''} ${studentData.lastName || ''}`.trim() || 'Student';
+  const parentName = userDoc.data().fullName || userDoc.data().firstName || 'Parent';
+  if (parentEmail) {
+    try {
+      await sgMail.send({
+        to: parentEmail,
+        from: FROM_EMAIL,
+        subject: `EZTeach: You're now linked to ${studentName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #0a1f44;">Account Linked</h1>
+            <p>Hi ${parentName},</p>
+            <p>You have successfully linked your account to <strong>${studentName}</strong>.</p>
+            <p>You can now view grades, attendance, and school info in the EZTeach app.</p>
+            <p>Best regards,<br>The EZTeach Team</p>
+          </div>
+        `,
+      });
+    } catch (e) {
+      console.error('Parent linked email error:', e);
+    }
+  }
+
+  return { success: true };
+});
+
+/**
+ * District adds a school (by code). For existing districts.
+ * Sets districtId on school, adds schoolId to district.
+ */
+exports.districtAddSchool = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const districtId = userDoc.data()?.districtId;
+  if (!districtId) throw new functions.https.HttpsError('failed-precondition', 'No district associated');
+
+  const districtDoc = await db.collection('districts').doc(districtId).get();
+  if (!districtDoc.exists) throw new functions.https.HttpsError('not-found', 'District not found');
+  if (districtDoc.data().ownerUid !== uid) throw new functions.https.HttpsError('permission-denied', 'Not district owner');
+
+  const code = String(data?.schoolCode || '').trim();
+  if (code.length !== 6) throw new functions.https.HttpsError('invalid-argument', '6-digit school code required');
+
+  const schoolsSnap = await db.collection('schools').where('schoolCode', '==', code).limit(1).get();
+  if (schoolsSnap.empty) throw new functions.https.HttpsError('not-found', 'No school with this code');
+
+  const schoolDoc = schoolsSnap.docs[0];
+  const schoolId = schoolDoc.id;
+  const schoolData = schoolDoc.data();
+
+  if (schoolData.districtId && schoolData.districtId !== districtId) {
+    throw new functions.https.HttpsError('failed-precondition', 'School is already in another district');
+  }
+
+  const districtData = districtDoc.data();
+  const schoolIds = districtData.schoolIds || [];
+  if (schoolIds.includes(schoolId)) {
+    return { success: true, message: 'Already in district' };
+  }
+
+  const nextBilling = (districtData.subscriptionEndDate && districtData.subscriptionEndDate.toDate)
+    ? districtData.subscriptionEndDate.toDate()
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  const batch = db.batch();
+  batch.update(db.collection('schools').doc(schoolId), {
+    districtId,
+    districtCovered: true,
+    subscriptionActive: true,
+    subscriptionEndDate: admin.firestore.Timestamp.fromDate(nextBilling)
+  });
+  batch.update(db.collection('districts').doc(districtId), {
+    schoolIds: admin.firestore.FieldValue.arrayUnion(schoolId)
+  });
+  await batch.commit();
+  return { success: true };
+});
+
+/**
+ * District adds a school by ID (e.g. when district just created the school).
+ */
+exports.districtAddSchoolById = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const districtId = userDoc.data()?.districtId;
+  if (!districtId) throw new functions.https.HttpsError('failed-precondition', 'No district');
+
+  const districtDoc = await db.collection('districts').doc(districtId).get();
+  if (!districtDoc.exists) throw new functions.https.HttpsError('not-found', 'District not found');
+  if (districtDoc.data().ownerUid !== uid) throw new functions.https.HttpsError('permission-denied', 'Not district owner');
+
+  const schoolId = data?.schoolId;
+  if (!schoolId) throw new functions.https.HttpsError('invalid-argument', 'schoolId required');
+
+  const schoolDoc = await db.collection('schools').doc(schoolId).get();
+  if (!schoolDoc.exists) throw new functions.https.HttpsError('not-found', 'School not found');
+  const schoolData = schoolDoc.data();
+  if (schoolData.districtId && schoolData.districtId !== districtId) {
+    throw new functions.https.HttpsError('failed-precondition', 'School already in another district');
+  }
+
+  const districtData = districtDoc.data();
+  const schoolIds = districtData.schoolIds || [];
+  if (schoolIds.includes(schoolId)) return { success: true };
+
+  const nextBilling = (districtData.subscriptionEndDate && districtData.subscriptionEndDate.toDate)
+    ? districtData.subscriptionEndDate.toDate()
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  const batch = db.batch();
+  batch.update(db.collection('schools').doc(schoolId), {
+    districtId,
+    districtCovered: true,
+    subscriptionActive: true,
+    subscriptionEndDate: admin.firestore.Timestamp.fromDate(nextBilling)
+  });
+  batch.update(db.collection('districts').doc(districtId), {
+    schoolIds: admin.firestore.FieldValue.arrayUnion(schoolId)
+  });
+  await batch.commit();
+  return { success: true };
+});
+
+/**
+ * District removes a school. Clears districtId from school, removes from district.
+ */
+exports.districtRemoveSchool = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const districtId = userDoc.data()?.districtId;
+  if (!districtId) throw new functions.https.HttpsError('failed-precondition', 'No district associated');
+
+  const districtDoc = await db.collection('districts').doc(districtId).get();
+  if (!districtDoc.exists) throw new functions.https.HttpsError('not-found', 'District not found');
+  if (districtDoc.data().ownerUid !== uid) throw new functions.https.HttpsError('permission-denied', 'Not district owner');
+
+  const schoolId = data?.schoolId;
+  if (!schoolId) throw new functions.https.HttpsError('invalid-argument', 'schoolId required');
+
+  const schoolDoc = await db.collection('schools').doc(schoolId).get();
+  if (!schoolDoc.exists) throw new functions.https.HttpsError('not-found', 'School not found');
+  if (schoolDoc.data().districtId !== districtId) throw new functions.https.HttpsError('permission-denied', 'School not in this district');
+
+  const batch = db.batch();
+  batch.update(db.collection('schools').doc(schoolId), {
+    districtId: admin.firestore.FieldValue.delete(),
+    districtCovered: admin.firestore.FieldValue.delete(),
+    subscriptionActive: false
+  });
+  batch.update(db.collection('districts').doc(districtId), {
+    schoolIds: admin.firestore.FieldValue.arrayRemove(schoolId)
+  });
+  await batch.commit();
+  return { success: true };
+});
+
+/**
+ * School leaves district. School owner only.
+ */
+exports.schoolLeaveDistrict = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const schoolId = data?.schoolId;
+  if (!schoolId) throw new functions.https.HttpsError('invalid-argument', 'schoolId required');
+
+  const schoolDoc = await db.collection('schools').doc(schoolId).get();
+  if (!schoolDoc.exists) throw new functions.https.HttpsError('not-found', 'School not found');
+  if (schoolDoc.data().ownerUid !== uid) throw new functions.https.HttpsError('permission-denied', 'Not school owner');
+
+  const districtId = schoolDoc.data().districtId;
+  if (!districtId) return { success: true, message: 'Not in a district' };
+
+  const batch = db.batch();
+  batch.update(db.collection('schools').doc(schoolId), {
+    districtId: admin.firestore.FieldValue.delete(),
+    districtCovered: admin.firestore.FieldValue.delete(),
+    subscriptionActive: false
+  });
+  batch.update(db.collection('districts').doc(districtId), {
+    schoolIds: admin.firestore.FieldValue.arrayRemove(schoolId)
+  });
+  await batch.commit();
+  return { success: true };
+});
+
+/**
+ * Parent unlinks a child. Reversible.
+ */
+exports.unlinkParentFromStudent = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const studentId = data?.studentId;
+  if (!studentId) throw new functions.https.HttpsError('invalid-argument', 'studentId required');
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (userDoc.data()?.role !== 'parent') throw new functions.https.HttpsError('permission-denied', 'Parent only');
+
+  const studentDoc = await db.collection('students').doc(studentId).get();
+  if (!studentDoc.exists) throw new functions.https.HttpsError('not-found', 'Student not found');
+
+  const parentIds = studentDoc.data().parentIds || [];
+  if (!parentIds.includes(uid)) return { success: true, message: 'Not linked' };
+
+  const batch = db.batch();
+  batch.update(db.collection('students').doc(studentId), {
+    parentIds: admin.firestore.FieldValue.arrayRemove(uid)
+  });
+
+  const linksSnap = await db.collection('parentStudentLinks')
+    .where('parentUserId', '==', uid)
+    .where('studentId', '==', studentId)
+    .get();
+  linksSnap.docs.forEach(d => batch.delete(d.ref));
+
+  const parentQuery = await db.collection('parents').where('userId', '==', uid).limit(1).get();
+  if (!parentQuery.empty) {
+    batch.update(parentQuery.docs[0].ref, {
+      childrenIds: admin.firestore.FieldValue.arrayRemove(studentId),
+      schoolIds: admin.firestore.FieldValue.arrayRemove(studentDoc.data().schoolId)
+    });
+  }
+
+  await batch.commit();
+  return { success: true };
+});
+
+/**
+ * Search schools for parent school pick. Callable by signed-in users.
+ * Returns schools matching searchText (name, city, or schoolCode).
+ */
+exports.searchSchools = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const searchText = String(data?.searchText || '').toLowerCase().trim();
+  if (searchText.length < 2) return [];
+  const all = await db.collection('schools').get();
+  const results = [];
+  all.docs.forEach(d => {
+    const data_ = d.data();
+    const name = (data_.name || '').toLowerCase();
+    const city = (data_.city || '').toLowerCase();
+    const code = String(data_.schoolCode || '');
+    if (name.includes(searchText) || city.includes(searchText) || code.includes(searchText)) {
+      results.push({
+        id: d.id,
+        name: data_.name || 'School',
+        city: data_.city || '',
+        schoolCode: code
+      });
+    }
+  });
+  return results.slice(0, 25);
+});
+
+/**
+ * Save Funday Friday pick (no auth, secured by key).
+ * POST with ?key=SECRET, body: { schoolId, schoolName, schoolCity, prizes: [...] }
+ */
+exports.saveFundayFridayPick = functions.runWith(runtimeOpts).https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.set('Access-Control-Allow-Methods', 'POST');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(204).send('');
+  }
+  const secret = functions.config().funday?.secret;
+  if (secret && req.query?.key !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  try {
+    const { schoolId, schoolName, schoolCity, prizes, chosenPrize } = req.body || {};
+    if (!schoolId || !schoolName || !Array.isArray(prizes)) {
+      return res.status(400).json({ error: 'Missing schoolId, schoolName, or prizes' });
+    }
+    await db.collection('fundayFridayPicks').add({
+      schoolId,
+      schoolName: schoolName || '',
+      schoolCity: schoolCity || '',
+      schoolIds: [schoolId],
+      schoolNames: [schoolName],
+      prizes: prizes.slice(0, 6),
+      chosenPrize: chosenPrize || '',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// =========================================================
+// STUDENT AUTH & PASSWORD
+// =========================================================
+
+/**
+ * Create student: USER FIRST (Auth + users doc), then STUDENT (students doc).
+ * This ensures students are full users like teachers/parents. Only path for student creation.
+ */
+exports.createStudent = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const callerUid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(callerUid).get();
+  const userData = userDoc.data() || {};
+  const role = userData.role || '';
+  const activeSchool = userData.activeSchoolId || '';
+  const districtId = userData.districtId;
+
+  const schoolId = (data.schoolId || '').trim();
+  if (!schoolId) throw new functions.https.HttpsError('invalid-argument', 'schoolId required');
+
+  const isSchoolAdmin = role === 'school' && activeSchool === schoolId;
+  const isTeacher = role === 'teacher' && activeSchool === schoolId;
+  const isDistrict = role === 'district' && districtId;
+  const isDistrictAdmin = isDistrict && await isDistrictAdminForSchool(callerUid, schoolId);
+  if (!isSchoolAdmin && !isTeacher && !isDistrictAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Only school staff or district admins can create students');
+  }
+
+  const firstName = (data.firstName || '').trim();
+  const lastName = (data.lastName || '').trim();
+  const middleName = (data.middleName || '').trim();
+  const gradeLevel = parseInt(data.gradeLevel, 10) || 0;
+  const notes = (data.notes || '').trim();
+  const emailRaw = (data.email || '').trim().toLowerCase();
+  const email = emailRaw && emailRaw.includes('@') ? emailRaw : null;
+  let dateOfBirth = null;
+  if (data.dateOfBirth) {
+    const dob = data.dateOfBirth;
+    const sec = dob._seconds ?? dob.seconds;
+    if (typeof sec === 'number') dateOfBirth = admin.firestore.Timestamp.fromMillis(sec * 1000);
+  }
+
+  let studentCode;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const candidate = generateStudentCode();
+    const snap = await db.collection('students').where('studentCode', '==', candidate).limit(1).get();
+    if (snap.empty) {
+      studentCode = candidate;
+      break;
+    }
+    if (attempt === 19) throw new functions.https.HttpsError('internal', 'Could not generate unique Student ID. Try again.');
+  }
+
+  const defaultPassword = studentCode + '!';
+  const studentAuthEmail = studentCode + '@students.ezteach.app';
+
+  // STEP 1: Create USER (Firebase Auth + users document) - USER FIRST
+  let authUid;
+  try {
+    const userRecord = await admin.auth().createUser({
+      email: studentAuthEmail,
+      password: defaultPassword,
+      emailVerified: true,
+      displayName: `${firstName} ${lastName}`.trim()
+    });
+    authUid = userRecord.uid;
+  } catch (e) {
+    if (e.code === 'auth/email-already-exists') {
+      throw new functions.https.HttpsError('already-exists', 'Student ID already exists. Try again.');
+    }
+    console.error('createStudent Auth error:', e);
+    throw new functions.https.HttpsError('internal', 'Could not create student account. Please try again.');
+  }
+
+  let schoolName = '';
+  try {
+    const schoolSnap = await db.collection('schools').doc(schoolId).get();
+    schoolName = schoolSnap.exists ? (schoolSnap.data().name || '') : '';
+  } catch (_) {}
+  await db.collection('users').doc(authUid).set({
+    role: 'student',
+    email: studentAuthEmail,
+    firstName,
+    lastName,
+    activeSchoolId: schoolId,
+    studentId: authUid,
+    joinedSchools: [{ id: schoolId, name: schoolName, city: '' }]
+  });
+
+  // STEP 2: Create STUDENT (students document) - from user info
+  let dobString = 'nodob';
+  if (dateOfBirth && typeof dateOfBirth.toDate === 'function') {
+    const d = dateOfBirth.toDate();
+    dobString = d.toISOString().slice(0, 10).replace(/-/g, '');
+  }
+  const duplicateKey = `${firstName.toLowerCase()}_${middleName.toLowerCase()}_${lastName.toLowerCase()}_${dobString}`;
+
+  const studentRef = db.collection('students').doc(authUid);
+  const studentData = {
+    firstName,
+    middleName,
+    lastName,
+    schoolId,
+    studentCode,
+    gradeLevel,
+    notes,
+    parentIds: [],
+    duplicateKey,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+  if (dateOfBirth) studentData.dateOfBirth = dateOfBirth;
+  if (email) studentData.email = email;
+
+  await studentRef.set(studentData);
+
+  const snap = await studentRef.get();
+  const d = snap.data();
+  return {
+    id: authUid,
+    firstName: d.firstName,
+    middleName: d.middleName,
+    lastName: d.lastName,
+    schoolId: d.schoolId,
+    studentCode: d.studentCode,
+    gradeLevel: d.gradeLevel,
+    notes: d.notes,
+    parentIds: d.parentIds || [],
+    createdAt: d.createdAt,
+    email: d.email || null,
+    dateOfBirth: d.dateOfBirth || null,
+    passwordChangedAt: null
+  };
+});
+
+/**
+ * Student login: validates studentCode + password, returns custom token.
+ * studentCode is the 8-char Student ID (case-insensitive). Password is case-sensitive.
+ */
+exports.studentLogin = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  const { studentCode, password } = data || {};
+  if (!studentCode || !password) {
+    throw new functions.https.HttpsError('invalid-argument', 'Student ID and password required');
+  }
+  const code = String(studentCode).toUpperCase().trim();
+  const pwd = String(password || '').trim();
+  let studentsSnap;
+  try {
+    studentsSnap = await db.collection('students').where('studentCode', '==', code).limit(1).get();
+  } catch (e) {
+    console.error('studentLogin Firestore error:', e);
+    throw new functions.https.HttpsError('internal', 'Unable to look up student. Please try again.');
+  }
+  if (studentsSnap.empty) {
+    throw new functions.https.HttpsError('not-found', 'Student account not found. Check your Student ID.');
+  }
+  const studentDoc = studentsSnap.docs[0];
+  const studentData = studentDoc.data();
+  const storedCode = (studentData.studentCode || '').toString().toUpperCase().trim();
+  const defaultPassword = storedCode + '!';
+  let hash = studentData.passwordHash;
+  if (!hash) {
+    hash = bcrypt.hashSync(defaultPassword, 10);
+    await studentDoc.ref.update({ passwordHash: hash });
+  }
+  let valid = bcrypt.compareSync(pwd, hash);
+  if (!valid) {
+    if (pwd === defaultPassword) {
+      hash = bcrypt.hashSync(defaultPassword, 10);
+      await studentDoc.ref.update({ passwordHash: hash });
+      valid = true;
+    }
+  }
+  if (!valid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Incorrect password. Default is Student ID + ! (e.g. ' + storedCode + '!)');
+  }
+  const authEmail = storedCode + '@students.ezteach.app';
+  const studentId = studentDoc.id;
+  try {
+    await admin.auth().getUser(studentId);
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') {
+      try {
+        await admin.auth().createUser({
+          uid: studentId,
+          email: authEmail,
+          emailVerified: true,
+          password: defaultPassword
+        });
+      } catch (createErr) {
+        console.error('studentLogin migrate to Auth failed:', createErr);
+      }
+    }
+  }
+  let schoolName = '';
+  try {
+    const schoolSnap = await db.collection('schools').doc(studentData.schoolId || '').get();
+    schoolName = schoolSnap.exists ? (schoolSnap.data().name || '') : '';
+  } catch (_) {}
+  const usersSnap = await db.collection('users').doc(studentId).get();
+  if (!usersSnap.exists) {
+    try {
+      await db.collection('users').doc(studentId).set({
+        role: 'student',
+        email: authEmail,
+        firstName: studentData.firstName || '',
+        lastName: studentData.lastName || '',
+        activeSchoolId: studentData.schoolId || '',
+        studentId,
+        joinedSchools: [{ id: studentData.schoolId || '', name: schoolName, city: '' }]
+      });
+    } catch (ue) {
+      console.error('studentLogin create users doc failed:', ue);
+    }
+  }
+  let customToken;
+  try {
+    customToken = await admin.auth().createCustomToken(studentId, { role: 'student' });
+  } catch (e) {
+    console.error('studentLogin createCustomToken error:', e);
+    throw new functions.https.HttpsError('internal', 'Unable to complete sign in. Please try again.');
+  }
+  return { token: customToken };
+});
+
+/**
+ * Get current user's student profile. Bypasses Firestore rules - use when direct read fails.
+ * Callable only by the student themselves (uid must match students doc).
+ */
+exports.getMyStudentProfile = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const studentSnap = await db.collection('students').doc(uid).get();
+  if (!studentSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'Student profile not found');
+  }
+  const d = studentSnap.data();
+  let schoolName = '';
+  try {
+    const schoolSnap = await db.collection('schools').doc(d.schoolId || '').get();
+    schoolName = schoolSnap.exists ? (schoolSnap.data().name || '') : '';
+  } catch (_) {}
+  const createdAt = d.createdAt;
+  const dob = d.dateOfBirth;
+  return {
+    id: uid,
+    firstName: d.firstName || '',
+    middleName: d.middleName || '',
+    lastName: d.lastName || '',
+    schoolId: d.schoolId || '',
+    studentCode: (d.studentCode || '').toString().toUpperCase(),
+    gradeLevel: d.gradeLevel || 0,
+    notes: d.notes || '',
+    parentIds: d.parentIds || [],
+    createdAt: createdAt || null,
+    email: d.email || null,
+    dateOfBirth: dob || null,
+    passwordChangedAt: d.passwordChangedAt || null,
+    schoolName
+  };
+});
+
+/**
+ * Ensure student has users document. Backfills legacy students (User created from Student).
+ */
+exports.ensureStudentUserDoc = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const uid = context.auth.uid;
+  const userSnap = await db.collection('users').doc(uid).get();
+  if (userSnap.exists && (userSnap.data()?.role || '') === 'student') {
+    return { success: true };
+  }
+  const studentSnap = await db.collection('students').doc(uid).get();
+  if (!studentSnap.exists) {
+    return { success: false };
+  }
+  const d = studentSnap.data();
+  let schoolName = '';
+  try {
+    const schoolSnap = await db.collection('schools').doc(d.schoolId || '').get();
+    schoolName = schoolSnap.exists ? (schoolSnap.data().name || '') : '';
+  } catch (_) {}
+  const authEmail = (d.studentCode || '').toString().toUpperCase().trim() + '@students.ezteach.app';
+  await db.collection('users').doc(uid).set({
+    role: 'student',
+    email: authEmail,
+    firstName: d.firstName || '',
+    lastName: d.lastName || '',
+    activeSchoolId: d.schoolId || '',
+    studentId: uid,
+    joinedSchools: [{ id: d.schoolId || '', name: schoolName, city: '' }]
+  }, { merge: true });
+  return { success: true };
+});
+
+/**
+ * Change student password - school/teacher/district only
+ */
+exports.changeStudentPassword = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const { studentId, newPassword } = data || {};
+  if (!studentId || !newPassword || newPassword.length < 6) {
+    throw new functions.https.HttpsError('invalid-argument', 'Student ID and new password (6+ chars) required');
+  }
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userData = userDoc.data() || {};
+  const role = userData.role || '';
+  const activeSchool = userData.activeSchoolId;
+  const studentDoc = await db.collection('students').doc(studentId).get();
+  if (!studentDoc.exists) throw new functions.https.HttpsError('not-found', 'Student not found');
+  const studentData = studentDoc.data();
+  const studentSchoolId = studentData.schoolId;
+  const isDistrict = role === 'district';
+  const isSchoolAdmin = role === 'school' && activeSchool === studentSchoolId;
+  const isTeacher = role === 'teacher' && activeSchool === studentSchoolId;
+  const isParentLinked = role === 'parent' && (studentData.parentIds || []).includes(uid);
+  const canEdit = isSchoolAdmin || isTeacher || (isDistrict && await isDistrictAdminForSchool(uid, studentSchoolId)) || isParentLinked;
+  if (!canEdit) {
+    throw new functions.https.HttpsError('permission-denied', 'Only school staff, district admins, or linked parents can change student passwords');
+  }
+  const code = (studentData.studentCode || '').toString().toUpperCase().trim();
+  const authEmail = code + '@students.ezteach.app';
+  try {
+    await admin.auth().getUser(studentId);
+    await admin.auth().updateUser(studentId, { password: newPassword });
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') {
+      try {
+        await admin.auth().createUser({ uid: studentId, email: authEmail, emailVerified: true, password: newPassword });
+      } catch (createErr) {
+        const hash = bcrypt.hashSync(newPassword, 10);
+        await studentDoc.ref.update({ passwordHash: hash, passwordChangedAt: admin.firestore.FieldValue.serverTimestamp() });
+      }
+    } else {
+      throw new functions.https.HttpsError('internal', 'Could not update password');
+    }
+  }
+  await studentDoc.ref.update({ passwordChangedAt: admin.firestore.FieldValue.serverTimestamp() });
+  return { success: true };
+});
+
+/**
+ * Reset student password to default (Student ID + !). School/teacher/district only.
+ * Use when a student cannot log in and needs their password reset to default.
+ */
+exports.resetStudentToDefaultPassword = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+  const { studentId } = data || {};
+  if (!studentId) throw new functions.https.HttpsError('invalid-argument', 'studentId required');
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userData = userDoc.data() || {};
+  const role = userData.role || '';
+  const activeSchool = userData.activeSchoolId;
+  const studentDoc = await db.collection('students').doc(studentId).get();
+  if (!studentDoc.exists) throw new functions.https.HttpsError('not-found', 'Student not found');
+  const studentData = studentDoc.data();
+  const studentSchoolId = studentData.schoolId;
+  const isSchoolAdmin = role === 'school' && activeSchool === studentSchoolId;
+  const isTeacher = role === 'teacher' && activeSchool === studentSchoolId;
+  const canEdit = isSchoolAdmin || isTeacher || (role === 'district' && await isDistrictAdminForSchool(uid, studentSchoolId));
+  if (!canEdit) {
+    throw new functions.https.HttpsError('permission-denied', 'Only school staff or district admins can reset passwords');
+  }
+  const code = (studentData.studentCode || '').toString().toUpperCase().trim();
+  const defaultPassword = code + '!';
+  const authEmail = code + '@students.ezteach.app';
+  try {
+    await admin.auth().getUser(studentId);
+    await admin.auth().updateUser(studentId, { password: defaultPassword });
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') {
+      try {
+        await admin.auth().createUser({ uid: studentId, email: authEmail, emailVerified: true, password: defaultPassword });
+      } catch (createErr) {
+        const hash = bcrypt.hashSync(defaultPassword, 10);
+        await studentDoc.ref.update({ passwordHash: hash, passwordChangedAt: null });
+      }
+    } else {
+      throw new functions.https.HttpsError('internal', 'Could not reset password');
+    }
+  }
+  await studentDoc.ref.update({ passwordChangedAt: null });
+  return { success: true, studentCode: code, message: `Password reset. Student can sign in with Student ID: ${code} and password: ${code}!` };
+});
+
+async function isDistrictAdminForSchool(uid, schoolId) {
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userData = userDoc.data() || {};
+  const districtId = userData.districtId;
+  if (!districtId) return false;
+  const districtDoc = await db.collection('districts').doc(districtId).get();
+  if (!districtDoc.exists) return false;
+  const districtData = districtDoc.data();
+  if (districtData.ownerUid !== uid) return false;
+  const schoolIds = districtData.schoolIds || [];
+  return schoolIds.includes(schoolId);
+}
 
 /**
  * Clean up orphaned data periodically

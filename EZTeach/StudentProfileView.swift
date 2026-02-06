@@ -51,8 +51,15 @@ struct StudentProfileView: View {
         .toolbar {
             if canEdit {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
-                        saveNotes()
+                    HStack(spacing: 16) {
+                        NavigationLink {
+                            EditStudentView(student: student)
+                        } label: {
+                            Text("Edit")
+                        }
+                        Button("Save") {
+                            saveNotes()
+                        }
                     }
                 }
             }
@@ -85,6 +92,10 @@ struct StudentProfileView: View {
                 Text(student.fullName)
                     .font(.title2.bold())
                 
+                Text("Student ID: \(student.studentCode)")
+                    .font(.subheadline.monospaced())
+                    .foregroundColor(EZTeachColors.accent)
+                
                 Text(GradeUtils.label(student.gradeLevel))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -102,13 +113,36 @@ struct StudentProfileView: View {
         .cornerRadius(16)
     }
     
-    // MARK: - Student Code Card
+    private var defaultPasswordBanner: some View {
+        Group {
+            if student.usesDefaultPassword {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(EZTeachColors.warning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Default Password")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Password is Student ID + ! (e.g. \(student.studentCode)!). Schools and teachers can change it.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding()
+                .background(EZTeachColors.warning.opacity(0.15))
+                .cornerRadius(12)
+            }
+        }
+    }
+    
     private var studentCodeCard: some View {
         VStack(spacing: 12) {
+            defaultPasswordBanner
+            
             HStack {
                 Image(systemName: "key.fill")
                     .foregroundColor(EZTeachColors.accent)
-                Text("Parent Linking Code")
+                Text("Student ID")
                     .font(.headline)
                 Spacer()
             }
@@ -129,7 +163,7 @@ struct StudentProfileView: View {
                 }
             }
             
-            Text("Share this code with the student's parents so they can link their account.")
+            Text("Students sign in with Student ID and password (default: Student ID!). Share with parents to link their account.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -269,7 +303,9 @@ struct StudentProfileView: View {
         
         db.collection("users").document(uid).getDocument { snap, _ in
             let role = snap?.data()?["role"] as? String ?? ""
-            canEdit = role == "school" || role == "teacher"
+            let districtId = snap?.data()?["districtId"] as? String ?? ""
+            canEdit = role == "school" || role == "teacher" ||
+                (role == "district" && !districtId.isEmpty)
         }
     }
     
@@ -386,6 +422,36 @@ struct StudentClassGradesView: View {
     
     var body: some View {
         StudentGradesView(classModel: classModel)
+    }
+}
+
+// MARK: - Student Profile Loader (for navigation by student ID)
+struct StudentProfileLoaderView: View {
+    let studentId: String
+    let schoolId: String
+    
+    @State private var student: Student?
+    @State private var isLoading = true
+    
+    private let db = Firestore.firestore()
+    
+    var body: some View {
+        Group {
+            if let s = student {
+                StudentProfileView(student: s)
+            } else if isLoading {
+                ProgressView("Loading...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ContentUnavailableView("Student Not Found", systemImage: "person.crop.circle.badge.questionmark")
+            }
+        }
+        .onAppear {
+            db.collection("students").document(studentId).getDocument { snap, _ in
+                student = snap.flatMap { Student.fromDocument($0) }
+                isLoading = false
+            }
+        }
     }
 }
 

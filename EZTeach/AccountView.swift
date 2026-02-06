@@ -14,6 +14,7 @@ struct AccountView: View {
     @State private var userData: UserAccountData?
     @State private var isLoading = true
     @State private var showSubscription = false
+    @State private var showDistrictSubscription = false
     @State private var showSupport = false
     @State private var showEditProfile = false
 
@@ -39,9 +40,12 @@ struct AccountView: View {
                             // Account info card
                             accountInfoCard(user)
 
-                            // Subscription card (schools only)
+                            // Account card (schools and districts)
                             if user.role == "school" {
                                 subscriptionCard(user)
+                            }
+                            if user.role == "district" {
+                                districtSubscriptionCard(user)
                             }
 
                             // Quick actions
@@ -75,6 +79,9 @@ struct AccountView: View {
                 if let user = userData {
                     SubscriptionView(userData: user)
                 }
+            }
+            .sheet(isPresented: $showDistrictSubscription) {
+                DistrictSubscriptionView()
             }
             .sheet(isPresented: $showSupport) {
                 SupportView()
@@ -139,7 +146,7 @@ struct AccountView: View {
         .cornerRadius(16)
     }
 
-    // MARK: - Subscription Card
+    // MARK: - Account Card (App Store compliant: no prices, neutral language)
     private func subscriptionCard(_ user: UserAccountData) -> some View {
         Button {
             showSubscription = true
@@ -148,9 +155,9 @@ struct AccountView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
-                            Image(systemName: "crown.fill")
+                            Image(systemName: "person.crop.circle.badge.checkmark")
                                 .foregroundStyle(EZTeachColors.premiumGradient)
-                            Text("Subscription")
+                            Text("Account")
                                 .font(.headline)
                                 .foregroundColor(.primary)
                         }
@@ -162,14 +169,9 @@ struct AccountView: View {
 
                     Spacer()
 
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("$75")
-                            .font(.title2.bold())
-                            .foregroundColor(.primary)
-                        Text("/month")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.secondary)
                 }
 
                 if user.isSubscribed {
@@ -182,14 +184,14 @@ struct AccountView: View {
                         Spacer()
                     }
                 } else {
-                    Text("Activate your subscription to unlock all features")
+                    Text("Exclusive features available on our website")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 HStack {
                     Spacer()
-                    Text(user.isSubscribed ? "Manage" : "Subscribe")
+                    Text("Manage Account")
                         .font(.subheadline.bold())
                         .foregroundColor(.white)
                         .padding(.horizontal, 20)
@@ -333,10 +335,59 @@ struct AccountView: View {
     private func roleIcon(_ role: String) -> String {
         switch role {
         case "school": return "building.columns.fill"
+        case "district": return "building.2.fill"
         case "teacher": return "person.fill"
         case "sub": return "person.badge.clock.fill"
         default: return "person.fill"
         }
+    }
+
+    // MARK: - District Account Card (App Store compliant)
+    private func districtSubscriptionCard(_ user: UserAccountData) -> some View {
+        Button {
+            showDistrictSubscription = true
+        } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "building.2.crop.circle.fill")
+                                .foregroundStyle(EZTeachColors.premiumGradient)
+                            Text("District Account")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                        }
+                        Text(user.subscriptionStatus)
+                            .font(.subheadline)
+                            .foregroundColor(user.isSubscribed ? EZTeachColors.success : .secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.secondary)
+                }
+                HStack {
+                    Spacer()
+                    Text("Manage Account")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(EZTeachColors.accentGradient)
+                        .cornerRadius(10)
+                }
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(EZTeachColors.secondaryBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(EZTeachColors.gold.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Load Data
@@ -358,6 +409,8 @@ struct AccountView: View {
             let lastName = data["lastName"] as? String ?? ""
             let schoolName = data["schoolName"] as? String ?? ""
             let joinedSchools = data["joinedSchools"] as? [[String: String]] ?? []
+            let activeSchoolId = data["activeSchoolId"] as? String
+            let districtId = data["districtId"] as? String
 
             // Get creation date
             let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
@@ -365,48 +418,64 @@ struct AccountView: View {
             formatter.dateFormat = "MMM yyyy"
             let memberSince = formatter.string(from: createdAt)
 
-            // Check subscription (for schools)
+            // Subscription: for school role read from school doc; for district from district doc
             let isSubscribed = data["subscriptionActive"] as? Bool ?? false
-            let subscriptionEnd = (data["subscriptionEndDate"] as? Timestamp)?.dateValue()
+            var subscriptionEnd: Date?
 
-            let nextBillingFormatter = DateFormatter()
-            nextBillingFormatter.dateFormat = "MMM d, yyyy"
-            let nextBilling = subscriptionEnd != nil ? nextBillingFormatter.string(from: subscriptionEnd!) : "N/A"
-
-            // Build display name
-            var displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
-            if displayName.isEmpty {
-                displayName = schoolName.isEmpty ? "User" : schoolName
-            }
-
-            // Initials
-            let initials: String
-            if !firstName.isEmpty && !lastName.isEmpty {
-                initials = "\(firstName.prefix(1))\(lastName.prefix(1))".uppercased()
-            } else if !schoolName.isEmpty {
-                initials = String(schoolName.prefix(2)).uppercased()
+            if role == "school", let sid = activeSchoolId {
+                db.collection("schools").document(sid).getDocument { schoolSnap, _ in
+                    let schoolData = schoolSnap?.data()
+                    let subActive = schoolData?["subscriptionActive"] as? Bool ?? false
+                    let subEnd = (schoolData?["subscriptionEndDate"] as? Timestamp)?.dateValue()
+                    finishLoadUserData(email: email, role: role, firstName: firstName, lastName: lastName, schoolName: schoolName, joinedSchools: joinedSchools, activeSchoolId: activeSchoolId, memberSince: memberSince, isSubscribed: subActive, subscriptionEnd: subEnd)
+                }
+            } else if role == "district", let did = districtId {
+                db.collection("districts").document(did).getDocument { districtSnap, _ in
+                    let districtData = districtSnap?.data()
+                    let subActive = districtData?["subscriptionActive"] as? Bool ?? false
+                    let subEnd = (districtData?["subscriptionEndDate"] as? Timestamp)?.dateValue()
+                    finishLoadUserData(email: email, role: role, firstName: firstName, lastName: lastName, schoolName: schoolName, joinedSchools: joinedSchools, activeSchoolId: activeSchoolId, memberSince: memberSince, isSubscribed: subActive, subscriptionEnd: subEnd)
+                }
             } else {
-                initials = "U"
+                subscriptionEnd = (data["subscriptionEndDate"] as? Timestamp)?.dateValue()
+                finishLoadUserData(email: email, role: role, firstName: firstName, lastName: lastName, schoolName: schoolName, joinedSchools: joinedSchools, activeSchoolId: activeSchoolId, memberSince: memberSince, isSubscribed: isSubscribed, subscriptionEnd: subscriptionEnd)
             }
-
-            let activeSchoolId = data["activeSchoolId"] as? String
-            
-            userData = UserAccountData(
-                email: email,
-                role: role,
-                displayName: displayName,
-                initials: initials,
-                schoolName: schoolName,
-                activeSchoolId: activeSchoolId,
-                memberSince: memberSince,
-                joinedSchoolsCount: joinedSchools.count,
-                isSubscribed: isSubscribed,
-                subscriptionStatus: isSubscribed ? "Active" : "Inactive",
-                nextBillingDate: nextBilling
-            )
-
-            isLoading = false
         }
+    }
+
+    private func finishLoadUserData(email: String, role: String, firstName: String, lastName: String, schoolName: String, joinedSchools: [[String: String]], activeSchoolId: String?, memberSince: String, isSubscribed: Bool, subscriptionEnd: Date?) {
+        let nextBillingFormatter = DateFormatter()
+        nextBillingFormatter.dateFormat = "MMM d, yyyy"
+        let nextBilling = subscriptionEnd != nil ? nextBillingFormatter.string(from: subscriptionEnd!) : "N/A"
+
+        var displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+        if displayName.isEmpty {
+            displayName = schoolName.isEmpty ? "User" : schoolName
+        }
+
+        let initials: String
+        if !firstName.isEmpty && !lastName.isEmpty {
+            initials = "\(firstName.prefix(1))\(lastName.prefix(1))".uppercased()
+        } else if !schoolName.isEmpty {
+            initials = String(schoolName.prefix(2)).uppercased()
+        } else {
+            initials = "U"
+        }
+
+        userData = UserAccountData(
+            email: email,
+            role: role,
+            displayName: displayName,
+            initials: initials,
+            schoolName: schoolName,
+            activeSchoolId: activeSchoolId,
+            memberSince: memberSince,
+            joinedSchoolsCount: joinedSchools.count,
+            isSubscribed: isSubscribed,
+            subscriptionStatus: isSubscribed ? "Active" : "Inactive",
+            nextBillingDate: nextBilling
+        )
+        isLoading = false
     }
 }
 

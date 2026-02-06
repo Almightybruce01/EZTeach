@@ -15,8 +15,11 @@ struct SwitchSchoolView: View {
     @State private var activeSchoolId: String = ""
     @State private var showAddSchool = false
     @State private var isLoading = true
+    @State private var leavingSchoolId: String?
+    @State private var leaveError: String?
 
     private let db = Firestore.firestore()
+    private let fs = FirestoreService.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
@@ -60,6 +63,14 @@ struct SwitchSchoolView: View {
                 AddSchoolByCodeView {
                     loadSchools()
                 }
+            }
+            .alert("Could Not Leave", isPresented: Binding(
+                get: { leaveError != nil },
+                set: { if !$0 { leaveError = nil } }
+            )) {
+                Button("OK") { leaveError = nil }
+            } message: {
+                Text(leaveError ?? "")
             }
             .onAppear(perform: loadSchools)
         }
@@ -179,6 +190,33 @@ struct SwitchSchoolView: View {
             )
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                leaveSchool(school)
+            } label: {
+                Label("Leave School", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+        }
+    }
+
+    private func leaveSchool(_ school: SchoolItem) {
+        leavingSchoolId = school.id
+        leaveError = ""
+        Task {
+            do {
+                try await fs.leaveSchool(school.id)
+                await MainActor.run {
+                    leavingSchoolId = nil
+                    loadSchools()
+                    NotificationCenter.default.post(name: .schoolDataDidChange, object: nil)
+                }
+            } catch {
+                await MainActor.run {
+                    leavingSchoolId = nil
+                    leaveError = error.localizedDescription
+                }
+            }
+        }
     }
 
     // MARK: - Add School Button
@@ -219,7 +257,7 @@ struct SwitchSchoolView: View {
             let joinedSchools = data["joinedSchools"] as? [[String: String]] ?? []
             schools = joinedSchools.compactMap { dict in
                 guard let id = dict["id"], let name = dict["name"] else { return nil }
-                return SchoolItem(id: id, name: name)
+                return SchoolItem(id: id, name: name, city: dict["city"] ?? "")
             }
 
             isLoading = false
@@ -246,4 +284,5 @@ struct SwitchSchoolView: View {
 struct SchoolItem: Identifiable {
     let id: String
     let name: String
+    var city: String = ""
 }

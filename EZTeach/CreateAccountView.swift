@@ -12,16 +12,50 @@ enum UserRole: String, CaseIterable {
     case school = "School"
     case district = "District"
     case teacher = "Teacher"
+    case principal = "Principal"
+    case assistantPrincipal = "Assistant Principal"
+    case assistantTeacher = "Assistant Teacher"
+    case secretary = "Secretary"
     case sub = "Sub"
     case parent = "Parent"
     
     var description: String {
         switch self {
         case .school: return "Manage your school, teachers, and students"
-        case .district: return "Manage multiple schools under one subscription"
+        case .district: return "Manage multiple schools—exclusive features on our website"
         case .teacher: return "Access classes, attendance, and sub plans"
+        case .principal, .assistantPrincipal: return "School leadership—no grade assignment required"
+        case .assistantTeacher, .secretary: return "Support staff—no grade assignment required"
         case .sub: return "View assignments and accept sub requests"
         case .parent: return "View your child's grades and school info"
+        }
+    }
+
+    /// Roles that create teacher-level accounts (stored as "teacher" in Firestore) without requiring grade
+    var isStaffNoGradeRequired: Bool {
+        switch self {
+        case .principal, .assistantPrincipal, .assistantTeacher, .secretary: return true
+        default: return false
+        }
+    }
+
+    /// Firestore role value
+    var firestoreRole: String {
+        switch self {
+        case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary: return "teacher"
+        case .sub: return "sub"
+        default: return rawValue.lowercased()
+        }
+    }
+
+    /// Optional staff type for teacher accounts (principals, etc.)
+    var staffType: String? {
+        switch self {
+        case .principal: return "principal"
+        case .assistantPrincipal: return "assistant_principal"
+        case .assistantTeacher: return "assistant_teacher"
+        case .secretary: return "secretary"
+        default: return nil
         }
     }
 }
@@ -31,7 +65,8 @@ struct CreateAccountView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var role: UserRole = .school
+    @State private var role: UserRole = .teacher
+    @State private var showAdminTypePicker = false
 
     // Person
     @State private var firstName = ""
@@ -51,6 +86,10 @@ struct CreateAccountView: View {
     
     // District
     @State private var districtName = ""
+    @State private var districtAddress = ""
+    @State private var districtCity = ""
+    @State private var districtState = ""
+    @State private var districtZip = ""
     @State private var numberOfSchools = 1
 
     // Auth
@@ -75,7 +114,7 @@ struct CreateAccountView: View {
                     schoolFields
                 case .district:
                     districtFields
-                case .teacher, .sub:
+                case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .sub:
                     personFields
                 case .parent:
                     parentFields
@@ -102,27 +141,104 @@ struct CreateAccountView: View {
         .alert("Account Created!", isPresented: $showSuccess) {
             Button("Continue") { dismiss() }
         } message: {
-            Text("Your account has been created successfully. You can now sign in.")
+            Text("Your account has been created successfully. You can now sign in and customize your school. Create an account on our website to access advanced features and allow teachers, subs, and parents to join.")
         }
         .alert("Parent Account Created!", isPresented: $showParentSuccess) {
             Button("Got it!") { dismiss() }
         } message: {
-            Text("Your account is ready!\n\nAfter signing in, go to 'My Children' in the menu and enter your child's Student Code to view their grades.\n\nAsk your child's school for the code.")
+            Text("Your account is ready!\n\nAfter signing in, go to 'My Children' → search and select your child's school → enter your child's Student ID (8-character code) to link and view grades.")
         }
     }
     
     // MARK: - Role Selector
+    private static let mainRoles: [UserRole] = [.parent, .teacher, .sub]
+    private static let adminRoles: [UserRole] = [.school, .district, .principal, .assistantPrincipal, .assistantTeacher, .secretary]
+
     private var roleSelector: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("I am a...")
                 .font(.headline)
-            
+
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(UserRole.allCases, id: \.self) { r in
+                ForEach(Self.mainRoles, id: \.self) { r in
                     roleCard(r)
+                }
+                adminCard
+            }
+        }
+        .sheet(isPresented: $showAdminTypePicker) {
+            adminTypePickerSheet
+        }
+    }
+
+    private var adminCard: some View {
+        Button {
+            showAdminTypePicker = true
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: "building.columns.fill")
+                    .font(.title2)
+                    .foregroundColor(Self.adminRoles.contains(role) ? .white : EZTeachColors.accent)
+
+                Text("School Administration")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(Self.adminRoles.contains(role) ? .white : .primary)
+
+                Text(Self.adminRoles.contains(role) ? role.rawValue : "School, district, principal & staff")
+                    .font(.caption2)
+                    .foregroundColor(Self.adminRoles.contains(role) ? .white.opacity(0.8) : .secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 8)
+            .background(Self.adminRoles.contains(role) ? EZTeachColors.accentGradient : LinearGradient(colors: [EZTeachColors.secondaryBackground], startPoint: .top, endPoint: .bottom))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Self.adminRoles.contains(role) ? Color.clear : EZTeachColors.cardStroke, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var adminTypePickerSheet: some View {
+        NavigationStack {
+            List(Self.adminRoles, id: \.self) { r in
+                Button {
+                    withAnimation { role = r }
+                    showAdminTypePicker = false
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: roleIcon(r))
+                            .font(.title3)
+                            .foregroundColor(EZTeachColors.accent)
+                            .frame(width: 28, alignment: .center)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.rawValue)
+                                .font(.subheadline.weight(.semibold))
+                            Text(r.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("School Administration")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showAdminTypePicker = false
+                    }
                 }
             }
         }
+        .presentationDetents([.medium, .large])
     }
     
     private func roleCard(_ r: UserRole) -> some View {
@@ -162,6 +278,10 @@ struct CreateAccountView: View {
         case .school: return "building.columns.fill"
         case .district: return "building.2.crop.circle.fill"
         case .teacher: return "person.fill"
+        case .principal: return "person.badge.key.fill"
+        case .assistantPrincipal: return "person.crop.circle.badge.checkmark"
+        case .assistantTeacher: return "person.2.fill"
+        case .secretary: return "person.text.rectangle.fill"
         case .sub: return "person.badge.clock.fill"
         case .parent: return "figure.2.and.child.holdinghands"
         }
@@ -231,6 +351,14 @@ struct CreateAccountView: View {
         VStack(spacing: 20) {
             formSection(title: "District Information") {
                 formField(icon: "building.2.crop.circle", placeholder: "District Name", text: $districtName)
+                formField(icon: "mappin", placeholder: "Street Address", text: $districtAddress)
+                HStack(spacing: 12) {
+                    formField(icon: "building", placeholder: "City", text: $districtCity)
+                    formField(icon: "map", placeholder: "State", text: $districtState)
+                        .frame(width: 80)
+                }
+                formField(icon: "number", placeholder: "ZIP Code", text: $districtZip)
+                    .keyboardType(.numberPad)
                 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Number of Schools")
@@ -334,14 +462,15 @@ struct CreateAccountView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     stepRow(number: 1, text: "Sign in to the app")
                     stepRow(number: 2, text: "Tap the menu → 'My Children'")
-                    stepRow(number: 3, text: "Enter your child's Student Code")
-                    stepRow(number: 4, text: "View grades, classes & announcements")
+                    stepRow(number: 3, text: "Search and select your child's school")
+                    stepRow(number: 4, text: "Enter your child's Student Code")
+                    stepRow(number: 5, text: "View grades, classes & announcements")
                 }
                 
                 HStack {
                     Image(systemName: "key.fill")
                         .foregroundColor(EZTeachColors.warning)
-                    Text("Get the Student Code from your child's school")
+                    Text("Get the Student ID from your child's school or teacher")
                         .font(.caption.bold())
                         .foregroundColor(EZTeachColors.warning)
                 }
@@ -473,8 +602,8 @@ struct CreateAccountView: View {
         case .school:
             return !schoolName.isEmpty && !address.isEmpty && !city.isEmpty && !state.isEmpty && !zip.isEmpty && schoolCode.count == 6
         case .district:
-            return !districtName.isEmpty && !firstName.isEmpty && !lastName.isEmpty && numberOfSchools >= 2
-        case .teacher, .sub, .parent:
+            return !districtName.isEmpty && !firstName.isEmpty && !lastName.isEmpty && !districtAddress.isEmpty && !districtCity.isEmpty && !districtState.isEmpty && districtZip.count >= 5 && numberOfSchools >= 2
+        case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .sub, .parent:
             return !firstName.isEmpty && !lastName.isEmpty
         }
     }
@@ -510,15 +639,20 @@ struct CreateAccountView: View {
                     firstName: firstName,
                     lastName: lastName,
                     phone: phone,
+                    address: districtAddress,
+                    city: districtCity,
+                    state: districtState,
+                    zip: districtZip,
                     numberOfSchools: numberOfSchools
                 )
                 showSuccess = true
 
-            case .teacher, .sub:
+            case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .sub:
                 try await FirestoreService.shared.createStaffAccount(
                     email: email,
                     password: password,
-                    role: role.rawValue.lowercased(),
+                    role: role.firestoreRole,
+                    staffType: role.staffType,
                     firstName: firstName,
                     lastName: lastName
                 )

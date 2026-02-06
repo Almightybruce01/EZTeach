@@ -12,6 +12,7 @@ struct Announcement: Identifiable {
     let schoolId: String
     let title: String
     let body: String
+    let attachmentUrl: String?
     /// `false` when taken down; omitted/true = active.
     let isActive: Bool
 }

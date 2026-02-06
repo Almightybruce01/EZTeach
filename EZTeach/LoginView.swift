@@ -17,7 +17,6 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showForgotPassword = false
-    @State private var resetEmailSent = false
     
     @FocusState private var focusedField: Field?
     
@@ -110,6 +109,9 @@ struct LoginView: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundColor(EZTeachColors.accent)
                     }
+                    .sheet(isPresented: $showForgotPassword) {
+                        ForgotPasswordView(prefilledEmail: email)
+                    }
                 }
                 .padding(.horizontal)
                 
@@ -183,22 +185,6 @@ struct LoginView: View {
         .background(EZTeachColors.background)
         .navigationTitle("Sign In")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Reset Password", isPresented: $showForgotPassword) {
-            TextField("Email", text: $email)
-                .keyboardType(.emailAddress)
-                .autocapitalization(.none)
-            Button("Cancel", role: .cancel) { }
-            Button("Send Reset Link") {
-                sendPasswordReset()
-            }
-        } message: {
-            Text("Enter your email address and we'll send you a link to reset your password.")
-        }
-        .alert("Email Sent", isPresented: $resetEmailSent) {
-            Button("OK") { }
-        } message: {
-            Text("Check your email for a password reset link.")
-        }
     }
     
     private var canLogin: Bool {
@@ -212,21 +198,12 @@ struct LoginView: View {
         errorMessage = ""
         focusedField = nil
         
-        Auth.auth().signIn(withEmail: email, password: password) { result, error in
+        let normalizedEmail = email.trimmingCharacters(in: .whitespaces).lowercased()
+        Auth.auth().signIn(withEmail: normalizedEmail, password: password) { result, error in
             isLoading = false
             
             if let error = error {
                 errorMessage = friendlyError(error)
-            }
-        }
-    }
-    
-    private func sendPasswordReset() {
-        guard !email.isEmpty else { return }
-        
-        Auth.auth().sendPasswordReset(withEmail: email) { error in
-            if error == nil {
-                resetEmailSent = true
             }
         }
     }

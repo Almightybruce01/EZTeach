@@ -82,7 +82,7 @@ struct ActivitiesView: View {
 
     private func load() {
         isLoading = true
-        guard let uid = Auth.auth().currentUser?.uid else { isLoading = false; return }
+        guard Auth.auth().currentUser?.uid != nil else { isLoading = false; return }
         db.collection("recommendedActivities")
             .whereField("schoolId", isEqualTo: schoolId)
             .getDocuments { snap, _ in

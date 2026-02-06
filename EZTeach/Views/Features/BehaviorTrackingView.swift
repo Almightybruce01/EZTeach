@@ -12,6 +12,7 @@ import FirebaseFirestore
 struct BehaviorTrackingView: View {
     let schoolId: String
     let studentId: String?
+    var userRole: String = "teacher"
     
     @State private var incidents: [BehaviorIncident] = []
     @State private var isLoading = true
@@ -86,11 +87,13 @@ struct BehaviorTrackingView: View {
             .background(EZTeachColors.background)
             .navigationTitle("Behavior")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAddIncident = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
+                if userRole == "school" || userRole == "teacher" || userRole == "sub" {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showAddIncident = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                        }
                     }
                 }
             }

@@ -10,5 +10,6 @@ import Foundation
 enum AccountRole: String, CaseIterable {
     case school = "School"
     case teacher = "Teacher"
+    case librarian = "Librarian"
     case sub = "Sub"
 }

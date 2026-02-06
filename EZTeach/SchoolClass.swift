@@ -19,6 +19,7 @@ struct SchoolClass: Identifiable {
         case regular = "regular"
         case dlp = "dlp"           // Dual Language Program
         case crossCat = "cross_cat" // Cross-categorical
+        case mixed = "mixed"       // Mixed / combined class
         case inclusion = "inclusion"
         case other = "other"
         
@@ -27,6 +28,7 @@ struct SchoolClass: Identifiable {
             case .regular: return "Regular"
             case .dlp: return "DLP (Dual Language)"
             case .crossCat: return "Cross-Categorical"
+            case .mixed: return "Mixed / Special"
             case .inclusion: return "Inclusion"
             case .other: return "Other"
             }

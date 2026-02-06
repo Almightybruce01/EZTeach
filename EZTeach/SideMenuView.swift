@@ -14,38 +14,22 @@ struct SideMenuView: View {
     @Binding var showMenu: Bool
     @Binding var selectedPage: MainContainerView.Page
     @Binding var activeSheet: MainContainerView.ActiveSheet?
+    @Binding var menuSheet: MainContainerView.MenuSheet?
+    let role: String
+    let schoolId: String
+    let districtSchoolIds: [String]
 
-    @State private var role: String = ""
     @State private var userName: String = ""
     @State private var schoolName: String = ""
-    @State private var schoolId: String = ""
     @State private var districtId: String = ""
-    @State private var districtSchoolIds: [String] = []
-    
-    // Sheet states
-    @State private var showAccount = false
-    @State private var showMessaging = false
-    @State private var showDocuments = false
-    @State private var showAnalytics = false
-    @State private var showBellSchedule = false
-    @State private var showSubRequests = false
-    @State private var showAvailability = false
-    @State private var showParentPortal = false
-    
-    // New feature sheets
-    @State private var showLessonPlans = false
-    @State private var showHomework = false
-    @State private var showBehavior = false
-    @State private var showBusTracking = false
-    @State private var showLunchMenu = false
-    @State private var showEmergencyAlerts = false
-    @State private var showVideoMeetings = false
-    @State private var showAttendanceAnalytics = false
-    @State private var showSubRanking = false
-    @State private var showActivities = false
 
     @Environment(\.colorScheme) private var colorScheme
     private let db = Firestore.firestore()
+
+    private func open(_ sheet: MainContainerView.MenuSheet) {
+        menuSheet = sheet
+        showMenu = false
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -74,6 +58,10 @@ struct SideMenuView: View {
                         go(.officeInfo)
                     }
 
+                    menuItem("School Library", icon: "books.vertical.fill", isSelected: false) {
+                        open(.schoolLibrary)
+                    }
+
                     menuItem("Grades", icon: "list.clipboard.fill", isSelected: selectedPage == .grades) {
                         go(.grades)
                     }
@@ -86,140 +74,61 @@ struct SideMenuView: View {
                         sectionLabel("MY CHILDREN")
 
                         menuItem("My Children", icon: "figure.2.and.child.holdinghands") {
-                            showMenu = false
-                            showParentPortal = true
+                            open(.parentPortal)
                         }
-                        
-                        menuItem("Bus Tracking", icon: "bus.fill") {
-                            showMenu = false
-                            showBusTracking = true
-                        }
-                        
-                        menuItem("Lunch Menu", icon: "fork.knife") {
-                            showMenu = false
-                            showLunchMenu = true
-                        }
-                        
-                        menuItem("Video Meetings", icon: "video.fill") {
-                            showMenu = false
-                            showVideoMeetings = true
-                        }
+                        menuItem("Bus Tracking", icon: "bus.fill") { open(.busTracking) }
+                        menuItem("Lunch Menu", icon: "fork.knife") { open(.lunchMenu) }
+                        menuItem("Video Meetings", icon: "video.fill") { open(.videoMeetings) }
                     }
 
-                    // School/Teacher features
-                    if role == "school" || role == "teacher" {
+                    // School, district, teacher, sub: reports & classroom (parents excluded)
+                    if role == "school" || role == "teacher" || role == "librarian" || role == "sub" || role == "district" {
                         Divider()
                             .padding(.vertical, 12)
 
                         sectionLabel("CLASSROOM")
                         
                         if role == "teacher" {
-                            menuItem("Lesson Plans", icon: "doc.text.fill") {
-                                showMenu = false
-                                showLessonPlans = true
-                            }
+                            menuItem("Lesson Plans", icon: "doc.text.fill") { open(.lessonPlans) }
                         }
-                        
-                        menuItem("Homework", icon: "book.fill") {
-                            showMenu = false
-                            showHomework = true
-                        }
-                        
-                        menuItem("Behavior", icon: "star.fill") {
-                            showMenu = false
-                            showBehavior = true
-                        }
-                        
-                        menuItem("Activities & Links", icon: "link") {
-                            showMenu = false
-                            showActivities = true
-                        }
+                        menuItem("Homework", icon: "book.fill") { open(.homework) }
+                        menuItem("Behavior", icon: "star.fill") { open(.behavior) }
+                        menuItem("Activities & Links", icon: "link") { open(.activities) }
 
                         Divider()
                             .padding(.vertical, 12)
 
                         sectionLabel("MANAGEMENT")
 
-                        menuItem("Sub Requests", icon: "calendar.badge.clock") {
-                            showMenu = false
-                            showSubRequests = true
-                        }
-
+                        menuItem("Students", icon: "person.3.fill") { open(.students) }
+                        menuItem("Sub Requests", icon: "calendar.badge.clock") { open(.subRequests) }
                         if role == "teacher" {
-                            menuItem("My Availability", icon: "calendar.badge.checkmark") {
-                                showMenu = false
-                                showAvailability = true
-                            }
+                            menuItem("My Availability", icon: "calendar.badge.checkmark") { open(.availability) }
                         }
-
-                        menuItem("Documents", icon: "doc.fill") {
-                            showMenu = false
-                            showDocuments = true
-                        }
-
-                        menuItem("Bell Schedule", icon: "bell.fill") {
-                            showMenu = false
-                            showBellSchedule = true
-                        }
-                        
-                        menuItem("Video Meetings", icon: "video.fill") {
-                            showMenu = false
-                            showVideoMeetings = true
-                        }
+                        menuItem("Documents", icon: "doc.fill") { open(.documents) }
+                        menuItem("Bell Schedule", icon: "bell.fill") { open(.bellSchedule) }
+                        menuItem("Video Meetings", icon: "video.fill") { open(.videoMeetings) }
 
                         if role == "school" {
                             Divider()
                                 .padding(.vertical, 12)
-                            
                             sectionLabel("SCHOOL ADMIN")
-                            
-                            menuItem("Analytics", icon: "chart.bar.fill") {
-                                showMenu = false
-                                showAnalytics = true
-                            }
-                            
-                            menuItem("Attendance Stats", icon: "chart.pie.fill") {
-                                showMenu = false
-                                showAttendanceAnalytics = true
-                            }
-                            
-                            menuItem("Bus Routes", icon: "bus.fill") {
-                                showMenu = false
-                                showBusTracking = true
-                            }
-                            
-                            menuItem("Lunch Menu", icon: "fork.knife") {
-                                showMenu = false
-                                showLunchMenu = true
-                            }
-                            
-                            menuItem("Emergency Alerts", icon: "exclamationmark.triangle.fill", badgeColor: .red) {
-                                showMenu = false
-                                showEmergencyAlerts = true
-                            }
-                            
-                            menuItem("Sub Ranking", icon: "list.number") {
-                                showMenu = false
-                                showSubRanking = true
-                            }
+                            menuItem("Default Password Report", icon: "exclamationmark.shield.fill", badgeColor: .orange) { open(.defaultPasswordReport) }
+                            menuItem("Analytics", icon: "chart.bar.fill") { open(.analytics) }
+                            menuItem("Attendance Stats", icon: "chart.pie.fill") { open(.attendanceAnalytics) }
+                            menuItem("Bus Routes", icon: "bus.fill") { open(.busTracking) }
+                            menuItem("Lunch Menu", icon: "fork.knife") { open(.lunchMenu) }
+                            menuItem("Emergency Alerts", icon: "exclamationmark.triangle.fill", badgeColor: .red) { open(.emergencyAlerts) }
+                            menuItem("Sub Ranking", icon: "list.number") { open(.subRanking) }
                         }
-                        
-                        // District admin: same management features including Sub Ranking
                         if role == "district" {
                             Divider()
                                 .padding(.vertical, 12)
-                            
                             sectionLabel("DISTRICT ADMIN")
-                            
-                            menuItem("Analytics", icon: "chart.bar.fill") {
-                                showMenu = false
-                                showAnalytics = true
-                            }
-                            
-                            menuItem("Sub Ranking", icon: "list.number") {
-                                showMenu = false
-                                showSubRanking = true
-                            }
+                            menuItem("Default Password Report", icon: "exclamationmark.shield.fill", badgeColor: .orange) { open(.defaultPasswordReport) }
+                            menuItem("Analytics", icon: "chart.bar.fill") { open(.analytics) }
+                            menuItem("Attendance Stats", icon: "chart.pie.fill") { open(.attendanceAnalytics) }
+                            menuItem("Sub Ranking", icon: "list.number") { open(.subRanking) }
                         }
                     }
 
@@ -229,18 +138,12 @@ struct SideMenuView: View {
 
                     sectionLabel("COMMUNICATION")
 
-                    menuItem("Messages", icon: "bubble.left.and.bubble.right.fill") {
-                        showMenu = false
-                        showMessaging = true
-                    }
+                    menuItem("Messages", icon: "bubble.left.and.bubble.right.fill") { open(.messaging) }
 
-                    // Schools section (teachers and subs only)
-                    if role == "teacher" || role == "sub" || role == "parent" {
+                    if role == "teacher" || role == "sub" || role == "parent" || role == "district" {
                         Divider()
                             .padding(.vertical, 12)
-
                         sectionLabel("SCHOOLS")
-
                         menuItem("Switch Schools", icon: "arrow.triangle.swap") {
                             showMenu = false
                             activeSheet = .switchSchool
@@ -249,14 +152,8 @@ struct SideMenuView: View {
 
                     Divider()
                         .padding(.vertical, 12)
-
-                    // Account section
                     sectionLabel("ACCOUNT")
-
-                    menuItem("My Account", icon: "person.circle.fill") {
-                        showMenu = false
-                        showAccount = true
-                    }
+                    menuItem("My Account", icon: "person.circle.fill") { open(.account) }
                 }
                 .padding(.horizontal, 16)
             }
@@ -279,112 +176,6 @@ struct SideMenuView: View {
         .background(menuBackground)
         .ignoresSafeArea()
         .onAppear(perform: loadUserData)
-        
-        // Original sheets
-        .sheet(isPresented: $showAccount) {
-            AccountView()
-        }
-        .sheet(isPresented: $showMessaging) {
-            if !schoolId.isEmpty {
-                NavigationStack {
-                    MessagingView(schoolId: schoolId)
-                }
-            }
-        }
-        .sheet(isPresented: $showDocuments) {
-            if !schoolId.isEmpty {
-                NavigationStack {
-                    DocumentsView(schoolId: schoolId, userRole: role)
-                }
-            }
-        }
-        .sheet(isPresented: $showAnalytics) {
-            if !schoolId.isEmpty {
-                NavigationStack {
-                    AnalyticsDashboardView(schoolId: schoolId)
-                }
-            }
-        }
-        .sheet(isPresented: $showBellSchedule) {
-            if !schoolId.isEmpty {
-                NavigationStack {
-                    BellScheduleView(schoolId: schoolId, userRole: role)
-                }
-            }
-        }
-        .sheet(isPresented: $showSubRequests) {
-            if !schoolId.isEmpty {
-                NavigationStack {
-                    SubRequestsListView(schoolId: schoolId, userRole: role)
-                }
-            }
-        }
-        .sheet(isPresented: $showAvailability) {
-            if !schoolId.isEmpty, let uid = Auth.auth().currentUser?.uid {
-                NavigationStack {
-                    TeacherAvailabilityView(teacherId: uid, schoolId: schoolId)
-                }
-            }
-        }
-        .sheet(isPresented: $showParentPortal) {
-            NavigationStack {
-                ParentPortalView()
-            }
-        }
-        
-        // New feature sheets
-        .sheet(isPresented: $showLessonPlans) {
-            if !schoolId.isEmpty {
-                LessonPlanningView(schoolId: schoolId)
-            }
-        }
-        .sheet(isPresented: $showHomework) {
-            if !schoolId.isEmpty {
-                HomeworkView(schoolId: schoolId, classId: nil)
-            }
-        }
-        .sheet(isPresented: $showBehavior) {
-            if !schoolId.isEmpty {
-                BehaviorTrackingView(schoolId: schoolId, studentId: nil)
-            }
-        }
-        .sheet(isPresented: $showBusTracking) {
-            if !schoolId.isEmpty {
-                BusTrackingView(schoolId: schoolId, isAdmin: role == "school")
-            }
-        }
-        .sheet(isPresented: $showLunchMenu) {
-            if !schoolId.isEmpty {
-                LunchMenuView(schoolId: schoolId, isAdmin: role == "school")
-            }
-        }
-        .sheet(isPresented: $showEmergencyAlerts) {
-            if !schoolId.isEmpty {
-                EmergencyAlertsView(schoolId: schoolId, isAdmin: role == "school")
-            }
-        }
-        .sheet(isPresented: $showVideoMeetings) {
-            if !schoolId.isEmpty {
-                VideoMeetingView(schoolId: schoolId, userRole: role)
-            }
-        }
-        .sheet(isPresented: $showAttendanceAnalytics) {
-            if !schoolId.isEmpty {
-                AttendanceAnalyticsView(schoolId: schoolId)
-            }
-        }
-        .sheet(isPresented: $showSubRanking) {
-            if role == "district" {
-                SubRankingView(schoolId: districtSchoolIds.first ?? "", districtSchoolIds: districtSchoolIds, isDistrict: true)
-            } else if !schoolId.isEmpty {
-                SubRankingView(schoolId: schoolId, districtSchoolIds: [], isDistrict: false)
-            }
-        }
-        .sheet(isPresented: $showActivities) {
-            if !schoolId.isEmpty {
-                ActivitiesView(schoolId: schoolId, classId: nil)
-            }
-        }
     }
 
     // MARK: - Header Section
@@ -541,6 +332,7 @@ struct SideMenuView: View {
         switch role {
         case "school": return "building.columns.fill"
         case "teacher": return "person.fill"
+        case "librarian": return "books.vertical.fill"
         case "sub": return "person.badge.clock.fill"
         case "parent": return "figure.2.and.child.holdinghands"
         case "district": return "building.2.crop.circle.fill"
@@ -555,9 +347,7 @@ struct SideMenuView: View {
         db.collection("users").document(uid).getDocument { snap, _ in
             guard let data = snap?.data() else { return }
 
-            role = data["role"] as? String ?? ""
             schoolName = data["schoolName"] as? String ?? ""
-            schoolId = data["activeSchoolId"] as? String ?? ""
             districtId = data["districtId"] as? String ?? ""
 
             let firstName = data["firstName"] as? String ?? ""
@@ -569,15 +359,6 @@ struct SideMenuView: View {
                 userName = schoolName
             } else if role == "district" {
                 userName = data["districtName"] as? String ?? "District Admin"
-            }
-
-            // Load district school IDs for district admins
-            if role == "district", !districtId.isEmpty {
-                db.collection("districts").document(districtId).getDocument { dSnap, _ in
-                    districtSchoolIds = dSnap?.data()?["schoolIds"] as? [String] ?? []
-                }
-            } else {
-                districtSchoolIds = []
             }
         }
     }

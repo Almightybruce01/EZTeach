@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Security
 import FirebaseFirestore
 
 struct Student: Identifiable, Codable {
@@ -14,12 +15,14 @@ struct Student: Identifiable, Codable {
     let middleName: String  // Required to help prevent duplicates
     let lastName: String
     let schoolId: String
-    let studentCode: String  // Unique 8-digit code for parent linking
+    let studentCode: String  // Unique 8-digit code - used as Student ID for login
     let gradeLevel: Int
     let dateOfBirth: Date?
     let notes: String
     let parentIds: [String]  // User IDs of linked parents
     let createdAt: Date
+    let email: String?
+    let passwordChangedAt: Date?  // If nil, still using default (studentCode + "!")
     
     var name: String {
         if lastName.isEmpty && firstName.isEmpty {
@@ -46,6 +49,9 @@ struct Student: Identifiable, Codable {
     }
     
     // Unique key for duplicate detection: lowercase first+middle+last+dob
+    /// Default password is studentCode + "!" until changed by school/teacher
+    var usesDefaultPassword: Bool { passwordChangedAt == nil }
+    
     var duplicateKey: String {
         let dobString: String
         if let dob = dateOfBirth {
@@ -58,12 +64,47 @@ struct Student: Identifiable, Codable {
         return "\(firstName.lowercased())_\(middleName.lowercased())_\(lastName.lowercased())_\(dobString)"
     }
     
-    // Generate a unique 8-digit student code
+    /// Generate 8-char code (A-Z, 0-9). Creation uses Cloud Function for global uniqueness.
     static func generateStudentCode() -> String {
-        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        return String((0..<8).map { _ in letters.randomElement()! })
+        var bytes = [UInt8](repeating: 0, count: 8)
+        _ = SecRandomCopyBytes(kSecRandomDefault, 8, &bytes)
+        let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return String(bytes.map { chars[chars.index(chars.startIndex, offsetBy: Int($0) % 36)] })
     }
     
+    /// Parse Cloud Function getMyStudentProfile response
+    static func fromCallableResponse(_ data: [String: Any]) -> Student? {
+        guard let id = data["id"] as? String else { return nil }
+        let createdAt = Self.parseDate(from: data["createdAt"])
+        let dob = Self.parseDate(from: data["dateOfBirth"])
+        let pwdChanged = Self.parseDate(from: data["passwordChangedAt"])
+        return Student(
+            id: id,
+            firstName: data["firstName"] as? String ?? "",
+            middleName: data["middleName"] as? String ?? "",
+            lastName: data["lastName"] as? String ?? "",
+            schoolId: data["schoolId"] as? String ?? "",
+            studentCode: ((data["studentCode"] as? String) ?? "").uppercased(),
+            gradeLevel: data["gradeLevel"] as? Int ?? 0,
+            dateOfBirth: dob,
+            notes: data["notes"] as? String ?? "",
+            parentIds: data["parentIds"] as? [String] ?? [],
+            createdAt: createdAt ?? Date(),
+            email: data["email"] as? String,
+            passwordChangedAt: pwdChanged
+        )
+    }
+
+    private static func parseDate(from value: Any?) -> Date? {
+        guard let v = value else { return nil }
+        if let ts = v as? Timestamp { return ts.dateValue() }
+        if let dict = v as? [String: Any] {
+            let sec = (dict["_seconds"] as? Int64) ?? (dict["_seconds"] as? Int).map { Int64($0) }
+            if let s = sec { return Date(timeIntervalSince1970: TimeInterval(s)) }
+        }
+        return nil
+    }
+
     static func fromDocument(_ doc: DocumentSnapshot) -> Student? {
         guard let data = doc.data() else { return nil }
         
@@ -73,12 +114,14 @@ struct Student: Identifiable, Codable {
             middleName: data["middleName"] as? String ?? "",
             lastName: data["lastName"] as? String ?? "",
             schoolId: data["schoolId"] as? String ?? "",
-            studentCode: data["studentCode"] as? String ?? "",
+            studentCode: ((data["studentCode"] as? String) ?? "").uppercased(),
             gradeLevel: data["gradeLevel"] as? Int ?? 0,
             dateOfBirth: (data["dateOfBirth"] as? Timestamp)?.dateValue(),
             notes: data["notes"] as? String ?? "",
             parentIds: data["parentIds"] as? [String] ?? [],
-            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+            email: data["email"] as? String,
+            passwordChangedAt: (data["passwordChangedAt"] as? Timestamp)?.dateValue()
         )
     }
     

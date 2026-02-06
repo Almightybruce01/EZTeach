@@ -9,7 +9,8 @@ import SwiftUI
 
 struct AuthView: View {
     @State private var animateGradient = false
-    
+    @State private var showForgotPassword = false
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -91,6 +92,22 @@ struct AuthView: View {
                     // Buttons
                     VStack(spacing: 16) {
                         NavigationLink {
+                            StudentLoginView()
+                        } label: {
+                            Text("Student Login")
+                                .font(.headline)
+                                .foregroundColor(EZTeachColors.navy)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 18)
+                                .background(EZTeachColors.accent.opacity(0.2))
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(EZTeachColors.accent.opacity(0.5), lineWidth: 1)
+                                )
+                        }
+                        
+                        NavigationLink {
                             LoginView()
                         } label: {
                             Text("Sign In")
@@ -121,6 +138,14 @@ struct AuthView: View {
                     }
                     .padding(.horizontal, 24)
                     
+                    // Forgot password link
+                    Button("Forgot Password?") {
+                        showForgotPassword = true
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(.bottom, 8)
+
                     // Footer
                     VStack(spacing: 8) {
                         Text("By continuing, you agree to our")
@@ -142,6 +167,9 @@ struct AuthView: View {
                 }
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showForgotPassword) {
+                ForgotPasswordView()
+            }
         }
     }
     

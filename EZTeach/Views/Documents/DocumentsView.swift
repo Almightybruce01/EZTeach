@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+import PhotosUI
 import UniformTypeIdentifiers
 
 struct DocumentsView: View {
@@ -272,6 +274,9 @@ struct UploadDocumentView: View {
     @State private var showFilePicker = false
     @State private var selectedFileURL: URL?
     @State private var selectedFileData: Data?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showCamera = false
+    @State private var cameraImageData: Data?
     @State private var errorMessage = ""
     
     @Environment(\.dismiss) private var dismiss
@@ -319,15 +324,35 @@ struct UploadDocumentView: View {
                             .foregroundColor(.red)
                         }
                     } else {
-                        Button {
-                            showFilePicker = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "doc.badge.plus")
-                                Text("Select File")
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Add from")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 12) {
+                                PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
+                                    attachmentOption(icon: "photo.on.rectangle.angled", title: "Photos")
+                                }
+                                .onChange(of: selectedPhotoItem) { _, item in
+                                    Task { await loadPhotoAsFile(item) }
+                                }
+                                Button {
+                                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                                        showCamera = true
+                                    }
+                                } label: {
+                                    attachmentOption(icon: "camera.fill", title: "Camera")
+                                }
+                                .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+                                Button {
+                                    showFilePicker = true
+                                } label: {
+                                    attachmentOption(icon: "doc.fill", title: "Files")
+                                }
+                                Button {
+                                    showFilePicker = true
+                                } label: {
+                                    attachmentOption(icon: "icloud.fill", title: "Drive")
+                                }
                             }
                         }
                     }
@@ -382,6 +407,42 @@ struct UploadDocumentView: View {
             ) { result in
                 handleFileSelection(result)
             }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraImagePicker(imageData: $cameraImageData)
+            }
+            .onChange(of: cameraImageData) { _, data in
+                guard let data else { return }
+                selectedFileData = data
+                selectedFileURL = nil
+                if name.isEmpty { name = "Camera capture" }
+                cameraImageData = nil
+            }
+        }
+    }
+
+    private func attachmentOption(icon: String, title: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.title2)
+            Text(title)
+                .font(.caption2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(EZTeachColors.secondaryBackground)
+        .foregroundColor(EZTeachColors.accent)
+        .cornerRadius(10)
+    }
+
+    private func loadPhotoAsFile(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        if let data = try? await item.loadTransferable(type: Data.self) {
+            await MainActor.run {
+                selectedFileData = data
+                selectedFileURL = nil
+                if name.isEmpty { name = "Photo attachment" }
+                selectedPhotoItem = nil
+            }
         }
     }
     
@@ -417,13 +478,17 @@ struct UploadDocumentView: View {
     
     private func uploadDocument() {
         guard let uid = Auth.auth().currentUser?.uid,
-              let fileData = selectedFileData,
-              let fileURL = selectedFileURL else { return }
+              let fileData = selectedFileData else { return }
         
         isUploading = true
         errorMessage = ""
         
-        let fileExtension = fileURL.pathExtension.lowercased()
+        let fileExtension: String
+        if let url = selectedFileURL, !url.pathExtension.isEmpty {
+            fileExtension = url.pathExtension.lowercased()
+        } else {
+            fileExtension = "jpg"
+        }
         let fileName = "\(UUID().uuidString).\(fileExtension)"
         let storagePath = "documents/\(schoolId)/\(fileName)"
         
@@ -457,6 +522,7 @@ struct UploadDocumentView: View {
                     let userData = snap?.data() ?? [:]
                     let userName = "\(userData["firstName"] as? String ?? "") \(userData["lastName"] as? String ?? "")"
                     
+                    let docFileType = fileTypeFromExtension(fileExtension)
                     let docData: [String: Any] = [
                         "schoolId": schoolId,
                         "uploadedByUserId": uid,
@@ -465,7 +531,7 @@ struct UploadDocumentView: View {
                         "description": description,
                         "fileUrl": downloadURL.absoluteString,
                         "storagePath": storagePath,
-                        "fileType": fileExtension,
+                        "fileType": docFileType.rawValue,
                         "fileSize": Int64(fileData.count),
                         "category": category.rawValue,
                         "isPublic": true,
@@ -495,6 +561,21 @@ struct UploadDocumentView: View {
         }
     }
     
+    private func fileTypeFromExtension(_ ext: String) -> SchoolDocument.FileType {
+        switch ext.lowercased() {
+        case "pdf": return .pdf
+        case "doc": return .doc
+        case "docx": return .docx
+        case "xls": return .xls
+        case "xlsx": return .xlsx
+        case "ppt": return .ppt
+        case "pptx": return .pptx
+        case "jpg", "jpeg", "png", "gif": return .image
+        case "mp4", "mov": return .video
+        default: return .other
+        }
+    }
+
     private func getContentType(for ext: String) -> String {
         switch ext {
         case "pdf": return "application/pdf"

@@ -13,7 +13,7 @@ struct StudentGradesView: View {
     
     let classModel: SchoolClass
     
-    @State private var students: [StudentInfo] = []
+    @State private var students: [Student] = []
     @State private var assignments: [GradeAssignment] = []
     @State private var grades: [String: [String: StudentGrade]] = [:] // [studentId: [assignmentId: grade]]
     @State private var overrides: [String: GradeOverride] = [:] // [studentId: override]
@@ -95,7 +95,7 @@ struct StudentGradesView: View {
         }
         .sheet(item: $selectedStudent) { student in
             StudentGradeDetailView(
-                student: student,
+                student: StudentInfo(id: student.id, name: student.name),
                 classModel: classModel,
                 assignments: assignments,
                 grades: grades[student.id] ?? [:],
@@ -165,67 +165,64 @@ struct StudentGradesView: View {
     }
     
     // MARK: - Student Grade Card
-    private func studentGradeCard(_ student: StudentInfo) -> some View {
+    private func studentGradeCard(_ student: Student) -> some View {
         let overallGrade = calculateStudentOverall(studentId: student.id)
         let override = overrides[student.id]
         
-        return Button {
-            selectedStudent = student
-        } label: {
-            HStack(spacing: 14) {
-                // Student avatar
-                Circle()
-                    .fill(EZTeachColors.accent.opacity(0.1))
-                    .frame(width: 44, height: 44)
-                    .overlay(
-                        Text(student.name.prefix(1).uppercased())
-                            .font(.headline)
-                            .foregroundColor(EZTeachColors.accent)
-                    )
-                
-                // Name
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(student.name)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.primary)
-                    
-                    // Assignment completion
-                    let completed = countCompletedAssignments(studentId: student.id)
-                    Text("\(completed)/\(assignments.count) graded")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // Grade display
-                VStack(alignment: .trailing, spacing: 2) {
-                    HStack(spacing: 4) {
-                        if override != nil {
-                            Image(systemName: "pencil.circle.fill")
-                                .font(.caption)
-                                .foregroundColor(EZTeachColors.warning)
-                        }
-                        
-                        Text(StudentOverallGrade.calculateLetterGrade(from: override?.overridePercentage ?? overallGrade))
-                            .font(.title3.bold())
-                            .foregroundColor(gradeColor(override?.overridePercentage ?? overallGrade))
+        return HStack(spacing: 14) {
+            NavigationLink {
+                StudentProfileView(student: student)
+            } label: {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(EZTeachColors.accent.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Text(student.name.prefix(1).uppercased())
+                                .font(.headline)
+                                .foregroundColor(EZTeachColors.accent)
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(student.name)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.primary)
+                        let completed = countCompletedAssignments(studentId: student.id)
+                        Text("\(completed)/\(assignments.count) graded")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    
-                    Text(String(format: "%.1f%%", override?.overridePercentage ?? overallGrade))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
-                
-                Image(systemName: "chevron.right")
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
+                    if override != nil {
+                        Image(systemName: "pencil.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(EZTeachColors.warning)
+                    }
+                    Text(StudentOverallGrade.calculateLetterGrade(from: override?.overridePercentage ?? overallGrade))
+                        .font(.title3.bold())
+                        .foregroundColor(gradeColor(override?.overridePercentage ?? overallGrade))
+                }
+                Text(String(format: "%.1f%%", override?.overridePercentage ?? overallGrade))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            .padding()
-            .background(EZTeachColors.secondaryBackground)
-            .cornerRadius(12)
+            
+            Button {
+                selectedStudent = StudentInfo(id: student.id, name: student.name)
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.title3)
+                    .foregroundColor(EZTeachColors.accent)
+            }
         }
-        .buttonStyle(.plain)
+        .padding()
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(12)
     }
     
     // MARK: - Empty State
@@ -396,15 +393,8 @@ struct StudentGradesView: View {
                 db.collection("students")
                     .whereField(FieldPath.documentID(), in: Array(studentIds.prefix(10)))
                     .getDocuments { studentSnap, _ in
-                        students = studentSnap?.documents.map { doc in
-                            let d = doc.data()
-                            let firstName = d["firstName"] as? String ?? ""
-                            let lastName = d["lastName"] as? String ?? ""
-                            return StudentInfo(
-                                id: doc.documentID,
-                                name: lastName.isEmpty ? firstName : "\(lastName), \(firstName)"
-                            )
-                        }.sorted { $0.name < $1.name } ?? []
+                        students = studentSnap?.documents.compactMap { Student.fromDocument($0) }
+                            .sorted { $0.name < $1.name } ?? []
                         completion()
                     }
             }

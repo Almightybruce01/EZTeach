@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EZTeach — Presentation Slides</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0a0a0f; --text: #f0f0f5; --accent: #6366f1; --party: linear-gradient(135deg, #ec4899, #8b5cf6); }
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; }
+    .slide { display: none; padding: 48px; max-width: 900px; margin: 0 auto; min-height: 100vh; flex-direction: column; justify-content: center; }
+    .slide.active { display: flex; }
+    .slide h1 { font-size: 2rem; margin: 0 0 16px; background: var(--party); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .slide h2 { font-size: 1.35rem; margin: 24px 0 12px; }
+    .slide p, .slide li { font-size: 1.1rem; line-height: 1.6; color: #bbb; }
+    .slide ul { padding-left: 24px; }
+    .slide .highlight { color: var(--text); font-weight: 600; }
+    .nav { position: fixed; bottom: 24px; right: 24px; display: flex; gap: 12px; }
+    .nav button { padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    .nav button:hover { opacity: 0.9; }
+    .counter { position: fixed; bottom: 24px; left: 24px; color: #666; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="slide active" id="s1">
+    <h1>EZTeach</h1>
+    <p style="font-size: 1.3rem;">One app for schools, teachers, parents &amp; substitutes</p>
+    <p>Grades • Attendance • Calendar • Sub Management • Parent Portal</p>
+  </div>
+  <div class="slide" id="s2">
+    <h1>Why EZTeach?</h1>
+    <ul>
+      <li><span class="highlight">Built for educators</span> — by educators. We understand schools.</li>
+      <li><span class="highlight">Constant updates</span> — new features, security patches, improvements.</li>
+      <li><span class="highlight">Safe &amp; secure</span> — encrypted data, FERPA-conscious, US-hosted.</li>
+      <li><span class="highlight">Versatile</span> — K–12, districts, private schools. One platform.</li>
+    </ul>
+  </div>
+  <div class="slide" id="s3">
+    <h1>The Problem</h1>
+    <p>Spreadsheets for grades. Paper for attendance. Email for parents. Phone calls for subs. Nothing talks to each other.</p>
+    <p class="highlight">EZTeach fixes that.</p>
+  </div>
+  <div class="slide" id="s4">
+    <h1>Core Features</h1>
+    <h2>Grades &amp; Attendance</h2>
+    <p>Auto-calculation, weighted categories. Parents see only their child.</p>
+    <h2>Calendar &amp; Announcements</h2>
+    <p>School-wide calendar. Filter by audience. One homepage.</p>
+    <h2>Substitute Management</h2>
+    <p>Book subs. <span class="highlight">Sub Ranking</span> — top subs by school &amp; city. No one else has this.</p>
+  </div>
+  <div class="slide" id="s5">
+    <h1>More Features</h1>
+    <ul>
+      <li><strong>Parent Portal</strong> — grades, attendance, messages. Child-only. Secure.</li>
+      <li><strong>Funday Friday</strong> — weekly spin, confetti, 6 picks. We celebrate our schools.</li>
+      <li><strong>Districts</strong> — pay for multiple schools. No double billing.</li>
+    </ul>
+  </div>
+  <div class="slide" id="s6">
+    <h1>Security &amp; Compliance</h1>
+    <p>Data encrypted. US-hosted (Firebase). Role-based access. FERPA-conscious.</p>
+    <p class="highlight">We take this seriously.</p>
+  </div>
+  <div class="slide" id="s7">
+    <h1>Pricing</h1>
+    <p><strong>$75/month</strong> per school • <strong>$750/year</strong> (save $150)</p>
+    <p>Districts: one subscription for multiple schools. Promo codes for pilots. No long-term contracts.</p>
+  </div>
+  <div class="slide" id="s8">
+    <h1>Next Steps</h1>
+    <p>Download the app. Create a school account. Add teachers. Invite parents with student codes.</p>
+    <p class="highlight">Questions?</p>
+  </div>
+
+  <div class="nav">
+    <button onclick="prev()">← Back</button>
+    <button onclick="next()">Next →</button>
+  </div>
+  <div class="counter" id="counter">1 / 8</div>
+
+  <script>
+    let i = 0;
+    const slides = document.querySelectorAll('.slide');
+    const total = slides.length;
+    function show() {
+      slides.forEach((s, j) => s.classList.toggle('active', j === i));
+      document.getElementById('counter').textContent = (i + 1) + ' / ' + total;
+    }
+    function next() { i = (i + 1) % total; show(); }
+    function prev() { i = (i - 1 + total) % total; show(); }
+    document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') next(); if (e.key === 'ArrowLeft') prev(); });
+  </script>
+</body>
+</html>

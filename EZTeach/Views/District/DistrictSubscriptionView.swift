@@ -8,21 +8,27 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 struct DistrictSubscriptionView: View {
-    
+
+    @State private var existingDistrictId: String?
+    @State private var existingDistrictName = ""
+    @State private var districtSchools: [DistrictSchoolItem] = []
+    @State private var isLoadingExisting = true
+
     @State private var districtName = ""
-    @State private var selectedPaymentMethod: PaymentMethod?
     @State private var validatedSchools: [ValidatedSchool] = []
     @State private var linkCode = ""
     @State private var linkError = ""
     @State private var isAddingByCode = false
     @State private var showCreateSchool = false
-    
+
     @State private var isProcessing = false
     @State private var showSuccess = false
     @State private var errorMessage = ""
     @State private var currentStep = 1
+    @State private var districtId: String?
     
     @Environment(\.dismiss) private var dismiss
     private let db = Firestore.firestore()
@@ -35,55 +41,37 @@ struct DistrictSubscriptionView: View {
         District.calculatePrice(schoolCount: max(1, numberOfSchools))
     }
     
-    enum PaymentMethod: String, CaseIterable, Identifiable {
-        case applePay = "Apple Pay"
-        case card = "Credit/Debit Card"
-        case paypal = "PayPal"
-        case bankTransfer = "Bank Transfer (ACH)"
-        case invoice = "Invoice (Net 30)"
-        
-        var id: String { rawValue }
-        
-        var icon: String {
-            switch self {
-            case .applePay: return "apple.logo"
-            case .card: return "creditcard.fill"
-            case .paypal: return "p.circle.fill"
-            case .bankTransfer: return "building.columns.fill"
-            case .invoice: return "doc.text.fill"
-            }
-        }
-    }
-    
+    private var hasExistingDistrict: Bool { existingDistrictId != nil }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 EZTeachColors.background.ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Progress indicator
-                        progressIndicator
-                        
-                        switch currentStep {
-                        case 1:
-                            step1_DistrictInfo
-                        case 2:
-                            step2_SchoolSelection
-                        case 3:
-                            step3_Payment
-                        default:
-                            EmptyView()
+
+                if isLoadingExisting {
+                    ProgressView("Loading...")
+                } else if hasExistingDistrict {
+                    districtManageSchoolsView
+                } else {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            progressIndicator
+                            switch currentStep {
+                            case 1: step1_DistrictInfo
+                            case 2: step2_SchoolSelection
+                            case 3: step3_Payment
+                            default: EmptyView()
+                            }
                         }
+                        .padding()
                     }
-                    .padding()
                 }
             }
-            .navigationTitle("District Subscription")
+            .navigationTitle(hasExistingDistrict ? "Manage Schools" : "District Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    Button("Done") { dismiss() }
                 }
             }
             .alert("Subscription Activated!", isPresented: $showSuccess) {
@@ -91,6 +79,190 @@ struct DistrictSubscriptionView: View {
             } message: {
                 Text("Your district subscription is now active. All \(numberOfSchools) schools are covered!")
             }
+        }
+        .onAppear { loadExistingDistrict() }
+    }
+
+    // MARK: - Existing District: Manage Schools
+    private var districtManageSchoolsView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                VStack(spacing: 12) {
+                    Image(systemName: "building.2.crop.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(EZTeachColors.premiumGradient)
+                    Text(existingDistrictName)
+                        .font(.title2.bold())
+                    Text("Add or remove schools in your district.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+
+                Button {
+                    if let url = URL(string: "https://ezteach.org") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Label("Manage Account", systemImage: "safari")
+                        .font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(EZTeachColors.accentGradient)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Link existing school")
+                        .font(.subheadline.weight(.medium))
+                    HStack(spacing: 12) {
+                        TextField("6-digit code", text: $linkCode)
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(EZTeachColors.secondaryBackground)
+                            .cornerRadius(10)
+                            .onChange(of: linkCode) { _, v in
+                                linkCode = String(v.prefix(6).filter { $0.isNumber })
+                                linkError = ""
+                            }
+                        Button {
+                            addSchoolToExistingDistrict()
+                        } label: {
+                            if isAddingByCode {
+                                ProgressView().scaleEffect(0.9).frame(width: 44, height: 44)
+                            } else {
+                                Text("Add").fontWeight(.semibold).frame(width: 44, height: 44)
+                            }
+                        }
+                        .disabled(linkCode.count != 6 || isAddingByCode)
+                        .background(EZTeachColors.accent)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                    if !linkError.isEmpty {
+                        Text(linkError).font(.caption).foregroundColor(EZTeachColors.error)
+                    }
+                }
+
+                Button {
+                    showCreateSchool = true
+                } label: {
+                    Label("Create new school", systemImage: "plus.circle.fill")
+                        .font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(EZTeachColors.secondaryBackground)
+                        .cornerRadius(12)
+                }
+
+                if !districtSchools.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Schools (\(districtSchools.count))")
+                            .font(.subheadline.weight(.medium))
+                        ForEach(districtSchools) { school in
+                            HStack {
+                                Image(systemName: "building.2.fill")
+                                    .foregroundColor(EZTeachColors.success)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(school.name).font(.subheadline.weight(.medium))
+                                    if !school.city.isEmpty {
+                                        Text(school.city).font(.caption).foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Button {
+                                    removeSchoolFromDistrict(school.id)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(12)
+                            .background(EZTeachColors.secondaryBackground)
+                            .cornerRadius(10)
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .sheet(isPresented: $showCreateSchool) {
+            CreateSchoolForDistrictSheet(districtId: districtId) { school in
+                Functions.functions().httpsCallable("districtAddSchoolById").call(["schoolId": school.id]) { _, _ in
+                    loadExistingDistrict()
+                }
+            }
+        }
+    }
+
+    private func loadExistingDistrict() {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            isLoadingExisting = false
+            return
+        }
+        db.collection("users").document(uid).getDocument { snap, _ in
+            let did = snap?.data()?["districtId"] as? String
+            guard let districtId = did, !districtId.isEmpty else {
+                isLoadingExisting = false
+                return
+            }
+            self.districtId = districtId
+            existingDistrictId = districtId
+            db.collection("districts").document(districtId).getDocument { dSnap, _ in
+                existingDistrictName = dSnap?.data()?["name"] as? String ?? "District"
+                let ids = dSnap?.data()?["schoolIds"] as? [String] ?? []
+                guard !ids.isEmpty else {
+                    districtSchools = []
+                    isLoadingExisting = false
+                    return
+                }
+                var results = [String: DistrictSchoolItem]()
+                let total = ids.count
+                for id in ids {
+                    db.collection("schools").document(id).getDocument { sSnap, _ in
+                        let d = sSnap?.data()
+                        let item = DistrictSchoolItem(
+                            id: id,
+                            name: d?["name"] as? String ?? "School",
+                            city: d?["city"] as? String ?? ""
+                        )
+                        DispatchQueue.main.async {
+                            results[id] = item
+                            if results.count == total {
+                                districtSchools = ids.compactMap { results[$0] }
+                                isLoadingExisting = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func addSchoolToExistingDistrict() {
+        guard existingDistrictId != nil, linkCode.count == 6 else { return }
+        isAddingByCode = true
+        linkError = ""
+        let functions = Functions.functions()
+        functions.httpsCallable("districtAddSchool").call(["schoolCode": linkCode]) { result, error in
+            isAddingByCode = false
+            if let err = error as NSError? {
+                linkError = (err.userInfo["NSLocalizedDescription"] as? String) ?? err.localizedDescription
+                return
+            }
+            linkCode = ""
+            loadExistingDistrict()
+        }
+    }
+
+    private func removeSchoolFromDistrict(_ schoolId: String) {
+        let functions = Functions.functions()
+        functions.httpsCallable("districtRemoveSchool").call(["schoolId": schoolId]) { _, _ in
+            loadExistingDistrict()
         }
     }
     
@@ -128,10 +300,10 @@ struct DistrictSubscriptionView: View {
                     .font(.system(size: 56))
                     .foregroundStyle(EZTeachColors.premiumGradient)
                 
-                Text("District Subscription")
+                Text("District Account")
                     .font(.title2.bold())
                 
-                Text("Manage multiple schools under one subscription with volume pricing.")
+                Text("Manage multiple schools under one account. Exclusive features on our website.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -180,7 +352,7 @@ struct DistrictSubscriptionView: View {
                 Text("Add Your Schools")
                     .font(.title2.bold())
                 
-                Text("Link existing schools by code, or create new ones. You must add at least one school before paying. Private schools can sign up on their own and pay separately.")
+                Text("Link existing schools by code, or create new ones. Complete setup on our website.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -296,12 +468,22 @@ struct DistrictSubscriptionView: View {
             }
         }
         .sheet(isPresented: $showCreateSchool) {
-            CreateSchoolForDistrictSheet { school in
+            CreateSchoolForDistrictSheet(districtId: districtId) { school in
                 validatedSchools.append(school)
             }
         }
+        .onAppear { loadDistrictId() }
     }
     
+    private func loadDistrictId() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        db.collection("users").document(uid).getDocument { snap, _ in
+            if let did = snap?.data()?["districtId"] as? String {
+                districtId = did
+            }
+        }
+    }
+
     private func addSchoolByCode() {
         let code = linkCode.trimmingCharacters(in: .whitespaces)
         guard code.count == 6 else { return }
@@ -346,54 +528,29 @@ struct DistrictSubscriptionView: View {
         }
     }
     
-    // MARK: - Step 3: Payment
+    // MARK: - Step 3: View Plans (App Store compliant: no payment in app)
     private var step3_Payment: some View {
         VStack(spacing: 24) {
-            // Summary card
+            // Summary card (no prices)
             VStack(spacing: 16) {
-                Text("Subscription Summary")
+                Text("Summary")
                     .font(.headline)
                 
                 VStack(spacing: 12) {
                     summaryRow(label: "District", value: districtName)
                     summaryRow(label: "Schools", value: "\(numberOfSchools)")
-                    summaryRow(label: "Price per School", value: String(format: "$%.2f/mo", pricing.pricePerSchool))
-                    Divider()
-                    HStack {
-                        Text("Total Monthly")
-                            .font(.headline)
-                        Spacer()
-                        Text(String(format: "$%.2f", pricing.total))
-                            .font(.title2.bold())
-                            .foregroundStyle(EZTeachColors.primaryGradient)
-                    }
                 }
             }
             .padding(20)
             .background(EZTeachColors.secondaryBackground)
             .cornerRadius(16)
             
-            // Payment methods
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Payment Method")
-                    .font(.headline)
-                
-                ForEach(PaymentMethod.allCases) { method in
-                    paymentMethodButton(method)
-                }
-            }
+            Text("District plans are managed on our website. Complete your setup and manage billing there.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
             
-            // Error message
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundColor(EZTeachColors.error)
-                    .padding()
-                    .background(EZTeachColors.error.opacity(0.1))
-                    .cornerRadius(8)
-            }
-            
-            // Navigation buttons
+            // Navigation
             HStack(spacing: 16) {
                 Button {
                     currentStep = 2
@@ -408,32 +565,30 @@ struct DistrictSubscriptionView: View {
                 }
                 
                 Button {
-                    processDistrictSubscription()
+                    openDistrictWebsite()
                 } label: {
                     HStack {
-                        if isProcessing {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.9)
-                        }
-                        Text(isProcessing ? "Processing..." : "Subscribe")
+                        Image(systemName: "safari")
+                        Text("Exclusive Features on Website")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(selectedPaymentMethod != nil && !isProcessing ? EZTeachColors.accentGradient : LinearGradient(colors: [Color.gray.opacity(0.3)], startPoint: .leading, endPoint: .trailing))
-                    .foregroundColor(selectedPaymentMethod != nil && !isProcessing ? .white : .secondary)
+                    .background(EZTeachColors.accentGradient)
+                    .foregroundColor(.white)
                     .cornerRadius(12)
                 }
-                .disabled(selectedPaymentMethod == nil || isProcessing)
             }
             
-            // Terms
-            Text("By subscribing, you agree to cover all listed schools. Schools covered by a district subscription cannot be charged separately.")
+            Text("Exclusive features and billing are managed on our website.")
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
         }
+    }
+    
+    private func openDistrictWebsite() {
+        guard let url = URL(string: "https://ezteach.org") else { return }
+        UIApplication.shared.open(url)
     }
     
     // MARK: - Helper Views
@@ -551,47 +706,9 @@ struct DistrictSubscriptionView: View {
         .font(.subheadline)
     }
     
-    private func paymentMethodButton(_ method: PaymentMethod) -> some View {
-        Button {
-            selectedPaymentMethod = method
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: method.icon)
-                    .font(.title3)
-                    .frame(width: 32)
-                
-                Text(method.rawValue)
-                    .font(.subheadline.weight(.medium))
-                
-                Spacer()
-                
-                if selectedPaymentMethod == method {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(EZTeachColors.success)
-                } else {
-                    Circle()
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 2)
-                        .frame(width: 22, height: 22)
-                }
-            }
-            .foregroundColor(.primary)
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(EZTeachColors.secondaryBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(selectedPaymentMethod == method ? EZTeachColors.accent : Color.clear, lineWidth: 2)
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-    }
-    
     // MARK: - Actions
     private func processDistrictSubscription() {
-        guard let uid = Auth.auth().currentUser?.uid,
-              let method = selectedPaymentMethod else { return }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
         
         isProcessing = true
         errorMessage = ""
@@ -613,7 +730,7 @@ struct DistrictSubscriptionView: View {
             "totalMonthlyPrice": pricing.total,
             "subscriptionStartDate": Timestamp(),
             "subscriptionEndDate": Timestamp(date: nextBilling),
-            "paymentMethod": method.rawValue,
+            "paymentMethod": "card",
             "createdAt": Timestamp()
         ]
         
@@ -629,6 +746,13 @@ struct DistrictSubscriptionView: View {
     }
 }
 
+// MARK: - District School Item (for manage view)
+struct DistrictSchoolItem: Identifiable {
+    let id: String
+    let name: String
+    let city: String
+}
+
 // MARK: - Helper Model
 struct ValidatedSchool: Identifiable {
     let id: String
@@ -639,6 +763,7 @@ struct ValidatedSchool: Identifiable {
 
 // MARK: - Create School for District Sheet
 struct CreateSchoolForDistrictSheet: View {
+    let districtId: String?
     let onDone: (ValidatedSchool) -> Void
     
     @State private var name = ""
@@ -646,6 +771,12 @@ struct CreateSchoolForDistrictSheet: View {
     @State private var city = ""
     @State private var state = ""
     @State private var zip = ""
+    @State private var adminFirstName = ""
+    @State private var adminLastName = ""
+    @State private var adminEmail = ""
+    @State private var adminPassword = ""
+    @State private var adminConfirmPassword = ""
+    @State private var schoolCode = ""
     @State private var isSaving = false
     @State private var errorMessage = ""
     @Environment(\.dismiss) private var dismiss
@@ -657,20 +788,43 @@ struct CreateSchoolForDistrictSheet: View {
         dismiss()
     }
     
+    private var canCreate: Bool {
+        !name.isEmpty && !address.isEmpty && !city.isEmpty && !state.isEmpty &&
+        zip.count >= 5 && !adminFirstName.isEmpty && !adminLastName.isEmpty &&
+        !adminEmail.isEmpty && adminPassword.count >= 6 && adminPassword == adminConfirmPassword &&
+        schoolCode.count == 6
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
                 Section("School details") {
-                    TextField("Name", text: $name)
-                    TextField("Address", text: $address)
+                    TextField("School Name", text: $name)
+                    TextField("Street Address", text: $address)
                     TextField("City", text: $city)
                     TextField("State", text: $state)
-                    TextField("ZIP", text: $zip)
+                    TextField("ZIP Code", text: $zip)
                         .keyboardType(.numberPad)
+                        .onChange(of: zip) { _, v in zip = String(v.prefix(5).filter { $0.isNumber }) }
+                    TextField("6-Digit School Code", text: $schoolCode)
+                        .keyboardType(.numberPad)
+                        .onChange(of: schoolCode) { _, v in schoolCode = String(v.prefix(6).filter { $0.isNumber }) }
+                }
+                Section("School admin (login for this school)") {
+                    TextField("First Name", text: $adminFirstName)
+                    TextField("Last Name", text: $adminLastName)
+                    TextField("Email", text: $adminEmail)
+                        .keyboardType(.emailAddress)
+                        .textContentType(.emailAddress)
+                        .autocapitalization(.none)
+                    SecureField("Password", text: $adminPassword)
+                    SecureField("Confirm Password", text: $adminConfirmPassword)
                 }
                 if !errorMessage.isEmpty {
-                    Text(errorMessage)
-                        .foregroundColor(EZTeachColors.error)
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(EZTeachColors.error)
+                    }
                 }
             }
             .navigationTitle("Create school")
@@ -679,17 +833,15 @@ struct CreateSchoolForDistrictSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Create") {
-                        save()
-                    }
-                    .disabled(name.isEmpty || address.isEmpty || city.isEmpty || state.isEmpty || zip.isEmpty || isSaving)
+                    Button("Create") { save() }
+                        .disabled(!canCreate || isSaving)
                 }
             }
         }
     }
     
     private func save() {
-        guard !name.isEmpty, !address.isEmpty, !city.isEmpty, !state.isEmpty, !zip.isEmpty else { return }
+        guard canCreate else { return }
         isSaving = true
         errorMessage = ""
         Task {
@@ -699,7 +851,12 @@ struct CreateSchoolForDistrictSheet: View {
                     address: address.trimmingCharacters(in: .whitespaces),
                     city: city.trimmingCharacters(in: .whitespaces),
                     state: state.trimmingCharacters(in: .whitespaces),
-                    zip: zip.trimmingCharacters(in: .whitespaces)
+                    zip: zip.trimmingCharacters(in: .whitespaces),
+                    schoolCode: schoolCode,
+                    adminEmail: adminEmail.trimmingCharacters(in: .whitespaces),
+                    adminPassword: adminPassword,
+                    adminFirstName: adminFirstName.trimmingCharacters(in: .whitespaces),
+                    adminLastName: adminLastName.trimmingCharacters(in: .whitespaces)
                 )
                 await MainActor.run {
                     isSaving = false
@@ -708,7 +865,7 @@ struct CreateSchoolForDistrictSheet: View {
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    errorMessage = "Failed to create school. Try again."
+                    errorMessage = error.localizedDescription
                 }
             }
         }

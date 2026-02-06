@@ -7,6 +7,7 @@
 
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 final class FirestoreService {
 
@@ -31,30 +32,34 @@ final class FirestoreService {
         schoolCode: String
     ) async throws {
 
+        let normalizedEmail = email.trimmingCharacters(in: .whitespaces).lowercased()
         let result = try await Auth.auth()
-            .createUser(withEmail: email, password: password)
+            .createUser(withEmail: normalizedEmail, password: password)
 
         let uid = result.user.uid
         let schoolRef = db.collection("schools").document()
         let grades = Array(gradesFrom...gradesTo)
 
+        let normalizedSchoolCode = schoolCode.trimmingCharacters(in: .whitespaces).uppercased()
         try await schoolRef.setData([
             "name": name,
             "address": address,
             "city": city,
             "state": state,
             "zip": zip,
-            "schoolCode": schoolCode,
+            "schoolCode": normalizedSchoolCode,
             "grades": grades,
             "ownerUid": uid,
-            "subscriptionStatus": "trial",
+            "subscriptionStatus": "inactive",
+            "subscriptionActive": false,
             "subscriptionEndDate": NSNull(),
             "createdAt": Timestamp()
         ])
 
         try await db.collection("users").document(uid).setData([
-            "email": email,
+            "email": normalizedEmail,
             "role": "school",
+            "fullName": name,
             "activeSchoolId": schoolRef.documentID,
             "joinedSchools": [
                 ["id": schoolRef.documentID, "name": name]
@@ -73,11 +78,15 @@ final class FirestoreService {
         firstName: String,
         lastName: String,
         phone: String,
+        address: String,
+        city: String,
+        state: String,
+        zip: String,
         numberOfSchools: Int
     ) async throws {
-        
+        let normalizedEmail = email.trimmingCharacters(in: .whitespaces).lowercased()
         let result = try await Auth.auth()
-            .createUser(withEmail: email, password: password)
+            .createUser(withEmail: normalizedEmail, password: password)
         
         let uid = result.user.uid
         let districtRef = db.collection("districts").document()
@@ -90,24 +99,30 @@ final class FirestoreService {
             "ownerUid": uid,
             "adminFirstName": firstName,
             "adminLastName": lastName,
-            "adminEmail": email,
+            "adminEmail": normalizedEmail,
             "adminPhone": phone,
+            "address": address,
+            "city": city,
+            "state": state,
+            "zip": zip,
             "schoolCount": numberOfSchools,
             "schoolIds": [],
             "subscriptionTier": pricing.tier.rawValue,
             "monthlyPrice": pricing.total,
             "pricePerSchool": pricing.pricePerSchool,
-            "subscriptionStatus": "trial",
+            "subscriptionStatus": "inactive",
+            "subscriptionActive": false,
             "subscriptionEndDate": NSNull(),
             "createdAt": Timestamp()
         ])
         
         try await db.collection("users").document(uid).setData([
-            "email": email,
+            "email": normalizedEmail,
             "role": "district",
             "districtId": districtRef.documentID,
             "firstName": firstName,
             "lastName": lastName,
+            "fullName": "\(firstName) \(lastName)",
             "phone": phone,
             "createdAt": Timestamp()
         ])
@@ -120,18 +135,19 @@ final class FirestoreService {
         email: String,
         password: String,
         role: String, // "teacher" | "sub"
+        staffType: String? = nil, // "principal" | "assistant_principal" | "assistant_teacher" | "secretary" — no grade required
         firstName: String,
         lastName: String
     ) async throws {
-
+        let normalizedEmail = email.trimmingCharacters(in: .whitespaces).lowercased()
         let result = try await Auth.auth()
-            .createUser(withEmail: email, password: password)
+            .createUser(withEmail: normalizedEmail, password: password)
 
         let uid = result.user.uid
         let fullName = "\(firstName) \(lastName)"
 
-        try await db.collection("users").document(uid).setData([
-            "email": email,
+        var userData: [String: Any] = [
+            "email": normalizedEmail,
             "role": role,
             "firstName": firstName,
             "lastName": lastName,
@@ -139,11 +155,13 @@ final class FirestoreService {
             "activeSchoolId": NSNull(),
             "joinedSchools": [],
             "createdAt": Timestamp()
-        ])
+        ]
+        if let st = staffType { userData["staffType"] = st }
+        try await db.collection("users").document(uid).setData(userData)
 
         if role == "teacher" {
             let ref = db.collection("teachers").document()
-            try await ref.setData([
+            var teacherData: [String: Any] = [
                 "userId": uid,
                 "firstName": firstName,
                 "lastName": lastName,
@@ -151,7 +169,9 @@ final class FirestoreService {
                 "schoolId": NSNull(),
                 "grades": [],
                 "createdAt": Timestamp()
-            ])
+            ]
+            if let st = staffType { teacherData["staffType"] = st }
+            try await ref.setData(teacherData)
         } else if role == "sub" {
             let ref = db.collection("subs").document()
             try await ref.setData([
@@ -176,15 +196,15 @@ final class FirestoreService {
         lastName: String,
         phone: String
     ) async throws {
-        
+        let normalizedEmail = email.trimmingCharacters(in: .whitespaces).lowercased()
         let result = try await Auth.auth()
-            .createUser(withEmail: email, password: password)
+            .createUser(withEmail: normalizedEmail, password: password)
         
         let uid = result.user.uid
         let fullName = "\(firstName) \(lastName)"
         
         try await db.collection("users").document(uid).setData([
-            "email": email,
+            "email": normalizedEmail,
             "role": "parent",
             "firstName": firstName,
             "lastName": lastName,
@@ -200,7 +220,7 @@ final class FirestoreService {
             "userId": uid,
             "firstName": firstName,
             "lastName": lastName,
-            "email": email,
+            "email": normalizedEmail,
             "phone": phone,
             "childrenIds": [],
             "schoolIds": [],
@@ -220,8 +240,9 @@ final class FirestoreService {
             throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
 
+        let normalizedCode = code.trimmingCharacters(in: .whitespaces).uppercased()
         let snap = try await db.collection("schools")
-            .whereField("schoolCode", isEqualTo: code)
+            .whereField("schoolCode", isEqualTo: normalizedCode)
             .getDocuments()
 
         guard let schoolDoc = snap.documents.first else {
@@ -229,7 +250,15 @@ final class FirestoreService {
         }
 
         let schoolId = schoolDoc.documentID
-        let schoolName = schoolDoc.data()["name"] as? String ?? "School"
+        let schoolData = schoolDoc.data()
+        let schoolName = schoolData["name"] as? String ?? "School"
+        let schoolCity = schoolData["city"] as? String ?? ""
+
+        // Block join if school has not activated subscription — teachers/subs/parents cannot access until school subscribes
+        let subscriptionActive = schoolData["subscriptionActive"] as? Bool ?? false
+        if !subscriptionActive {
+            throw NSError(domain: "SchoolNotSubscribed", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school has not activated their account yet. Teachers, subs, and parents cannot join until the school administrator completes setup on our website. Please ask the school to manage their account at ezteach.org."])
+        }
 
         let userRef = db.collection("users").document(uid)
         let userSnap = try await userRef.getDocument()
@@ -243,7 +272,7 @@ final class FirestoreService {
         var joinedSchools = userData["joinedSchools"] as? [[String: String]] ?? []
 
         if !joinedSchools.contains(where: { $0["id"] == schoolId }) {
-            joinedSchools.append(["id": schoolId, "name": schoolName])
+            joinedSchools.append(["id": schoolId, "name": schoolName, "city": schoolCity])
         }
 
         try await userRef.setData([
@@ -276,14 +305,35 @@ final class FirestoreService {
         )
     }
 
-    /// Create a school for district subscription (no user account). Returns (id, code, name).
-    func createSchoolForDistrict(name: String, address: String, city: String, state: String, zip: String) async throws -> (id: String, code: String, name: String) {
-        var code: String
-        var existing: (id: String, name: String, districtId: String?)?
-        repeat {
-            code = String(format: "%06d", Int.random(in: 100_000...999_999))
-            existing = try await lookupSchoolByCode(code)
-        } while existing != nil
+    /// Search schools by name, city, or code. Returns array of { id, name, city, schoolCode }.
+    func searchSchools(searchText: String) async throws -> [[String: Any]] {
+        let functions = Functions.functions()
+        let result = try await functions.httpsCallable("searchSchools").call(["searchText": searchText])
+        return (result.data as? [[String: Any]]) ?? []
+    }
+
+    /// Create a school for district subscription (full account: Auth + users + schools). Returns (id, code, name).
+    func createSchoolForDistrict(
+        name: String,
+        address: String,
+        city: String,
+        state: String,
+        zip: String,
+        schoolCode: String,
+        adminEmail: String,
+        adminPassword: String,
+        adminFirstName: String,
+        adminLastName: String
+    ) async throws -> (id: String, code: String, name: String) {
+        let code = schoolCode
+        let existing = try await lookupSchoolByCode(code)
+        if existing != nil {
+            throw NSError(domain: "CreateSchool", code: 0, userInfo: [NSLocalizedDescriptionKey: "School code \(code) is already in use."])
+        }
+
+        let result = try await Auth.auth().createUser(withEmail: adminEmail, password: adminPassword)
+        let uid = result.user.uid
+        let fullName = "\(adminFirstName) \(adminLastName)"
 
         let ref = db.collection("schools").document()
         let grades = Array(1...12)
@@ -295,15 +345,29 @@ final class FirestoreService {
             "zip": zip,
             "schoolCode": code,
             "grades": grades,
-            "subscriptionStatus": "trial",
+            "ownerUid": uid,
+            "subscriptionStatus": "inactive",
+            "subscriptionActive": false,
             "subscriptionEndDate": NSNull(),
             "createdAt": Timestamp()
         ])
+
+        try await db.collection("users").document(uid).setData([
+            "email": adminEmail,
+            "role": "school",
+            "firstName": adminFirstName,
+            "lastName": adminLastName,
+            "fullName": fullName,
+            "activeSchoolId": ref.documentID,
+            "joinedSchools": [["id": ref.documentID, "name": name, "city": city]],
+            "createdAt": Timestamp()
+        ])
+
         return (ref.documentID, code, name)
     }
 
     // =========================================================
-    // MARK: - CREATE STUDENT
+    // MARK: - CREATE STUDENT (via Cloud Function - globally unique studentCode, correct passwordHash)
     // =========================================================
     func createStudent(
         firstName: String,
@@ -312,55 +376,55 @@ final class FirestoreService {
         gradeLevel: Int,
         schoolId: String,
         dateOfBirth: Date? = nil,
-        notes: String = ""
+        notes: String = "",
+        email: String? = nil
     ) async throws -> Student {
-        
-        let studentCode = Student.generateStudentCode()
-        
-        let ref = db.collection("students").document()
-        
-        // Create duplicate key for checking
-        let dobString: String
-        if let dob = dateOfBirth {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyyMMdd"
-            dobString = formatter.string(from: dob)
-        } else {
-            dobString = "nodob"
-        }
-        let duplicateKey = "\(firstName.lowercased())_\(middleName.lowercased())_\(lastName.lowercased())_\(dobString)"
-        
-        var data: [String: Any] = [
-            "firstName": firstName,
-            "middleName": middleName,
-            "lastName": lastName,
+        var payload: [String: Any] = [
             "schoolId": schoolId,
-            "studentCode": studentCode,
+            "firstName": firstName.trimmingCharacters(in: .whitespaces),
+            "middleName": middleName.trimmingCharacters(in: .whitespaces),
+            "lastName": lastName.trimmingCharacters(in: .whitespaces),
             "gradeLevel": gradeLevel,
-            "notes": notes,
-            "parentIds": [],
-            "duplicateKey": duplicateKey,
-            "createdAt": Timestamp()
+            "notes": notes.trimmingCharacters(in: .whitespaces)
         ]
-        
         if let dob = dateOfBirth {
-            data["dateOfBirth"] = Timestamp(date: dob)
+            payload["dateOfBirth"] = ["_seconds": Int64(dob.timeIntervalSince1970)]
         }
-        
-        try await ref.setData(data)
-        
+        if let em = email?.trimmingCharacters(in: .whitespaces).lowercased(), !em.isEmpty, em.contains("@") {
+            payload["email"] = em
+        }
+        let result = try await Functions.functions().httpsCallable("createStudent").call(payload)
+        guard let data = result.data as? [String: Any] else {
+            throw NSError(domain: "CreateStudent", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+        let id = data["id"] as? String ?? ""
+        let sc = (data["studentCode"] as? String ?? "").uppercased()
+        var createdAt = Date()
+        if let ts = data["createdAt"] as? Timestamp {
+            createdAt = ts.dateValue()
+        } else if let sec = (data["createdAt"] as? [String: Any])?["_seconds"] as? Int64 {
+            createdAt = Date(timeIntervalSince1970: TimeInterval(sec))
+        }
+        var dob: Date?
+        if let ts = data["dateOfBirth"] as? Timestamp {
+            dob = ts.dateValue()
+        } else if let sec = (data["dateOfBirth"] as? [String: Any])?["_seconds"] as? Int64 {
+            dob = Date(timeIntervalSince1970: TimeInterval(sec))
+        }
         return Student(
-            id: ref.documentID,
-            firstName: firstName,
-            middleName: middleName,
-            lastName: lastName,
-            schoolId: schoolId,
-            studentCode: studentCode,
-            gradeLevel: gradeLevel,
-            dateOfBirth: dateOfBirth,
-            notes: notes,
-            parentIds: [],
-            createdAt: Date()
+            id: id,
+            firstName: data["firstName"] as? String ?? "",
+            middleName: data["middleName"] as? String ?? "",
+            lastName: data["lastName"] as? String ?? "",
+            schoolId: data["schoolId"] as? String ?? "",
+            studentCode: sc,
+            gradeLevel: data["gradeLevel"] as? Int ?? 0,
+            dateOfBirth: dob,
+            notes: data["notes"] as? String ?? "",
+            parentIds: data["parentIds"] as? [String] ?? [],
+            createdAt: createdAt,
+            email: data["email"] as? String,
+            passwordChangedAt: nil
         )
     }
 
@@ -576,6 +640,60 @@ final class FirestoreService {
         }
         
         try await db.collection("gradeOverrides").document(docId).setData(data, merge: true)
+    }
+
+    // =========================================================
+    // MARK: - LEAVE SCHOOL (teachers/subs — reversible)
+    // =========================================================
+    func leaveSchool(_ schoolId: String) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
+        }
+
+        let userRef = db.collection("users").document(uid)
+        let userSnap = try await userRef.getDocument()
+        guard let userData = userSnap.data() else {
+            throw NSError(domain: "UserError", code: 0, userInfo: [NSLocalizedDescriptionKey: "User not found"])
+        }
+
+        let role = userData["role"] as? String ?? ""
+        guard role == "teacher" || role == "sub" else {
+            throw NSError(domain: "RoleError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Only teachers and subs can leave schools"])
+        }
+
+        var joinedSchools = userData["joinedSchools"] as? [[String: String]] ?? []
+        joinedSchools.removeAll { $0["id"] == schoolId }
+
+        let activeSchoolId = userData["activeSchoolId"] as? String
+        let newActiveIdValue: String? = (activeSchoolId == schoolId)
+            ? joinedSchools.first?["id"]
+            : activeSchoolId
+        let newActiveId: Any = newActiveIdValue ?? NSNull()
+
+        var updates: [String: Any] = [
+            "joinedSchools": joinedSchools,
+            "activeSchoolId": newActiveId
+        ]
+        if activeSchoolId == schoolId, let first = joinedSchools.first {
+            updates["schoolName"] = first["name"] ?? NSNull()
+        } else if activeSchoolId == schoolId {
+            updates["schoolName"] = NSNull()
+        }
+
+        try await userRef.updateData(updates)
+
+        let nextSchoolId: Any = joinedSchools.first?["id"] ?? NSNull()
+        if role == "teacher" {
+            let tq = try await db.collection("teachers").whereField("userId", isEqualTo: uid).limit(to: 1).getDocuments()
+            if let td = tq.documents.first, (td.data()["schoolId"] as? String) == schoolId {
+                try await td.reference.updateData(["schoolId": nextSchoolId])
+            }
+        } else if role == "sub" {
+            let sq = try await db.collection("subs").whereField("userId", isEqualTo: uid).limit(to: 1).getDocuments()
+            if let sd = sq.documents.first, (sd.data()["schoolId"] as? String) == schoolId {
+                try await sd.reference.updateData(["schoolId": nextSchoolId])
+            }
+        }
     }
 
     // =========================================================

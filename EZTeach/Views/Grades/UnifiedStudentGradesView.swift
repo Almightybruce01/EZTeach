@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseFunctions
 import PDFKit
 
 struct UnifiedStudentGradesView: View {
@@ -330,6 +331,9 @@ struct ReportCardView: View {
     
     @Environment(\.dismiss) private var dismiss
     @State private var isGenerating = false
+    @State private var isSendingEmail = false
+    @State private var emailSent = false
+    @State private var emailError: String?
     
     var body: some View {
         NavigationStack {
@@ -417,10 +421,35 @@ struct ReportCardView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: "Report Card for \(student.fullName)") {
-                        Image(systemName: "square.and.arrow.up")
+                    HStack(spacing: 16) {
+                        if !student.parentIds.isEmpty {
+                            Button {
+                                sendReportCardToParents()
+                            } label: {
+                                if isSendingEmail {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "envelope.fill")
+                                }
+                            }
+                            .disabled(isSendingEmail)
+                        }
+                        ShareLink(item: "Report Card for \(student.fullName)") {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                     }
                 }
+            }
+            .alert("Report Card Sent", isPresented: $emailSent) {
+                Button("OK") { }
+            } message: {
+                Text("Report card notification emailed to linked parents.")
+            }
+            .alert("Error", isPresented: .constant(emailError != nil)) {
+                Button("OK") { emailError = nil }
+            } message: {
+                Text(emailError ?? "")
             }
         }
     }
@@ -435,6 +464,24 @@ struct ReportCardView: View {
         }
     }
     
+    private func sendReportCardToParents() {
+        guard !isSendingEmail else { return }
+        isSendingEmail = true
+        emailError = nil
+        Functions.functions().httpsCallable("sendReportCardNotification").call([
+            "studentId": student.id,
+            "studentName": student.fullName,
+            "overallGPA": overallGPA
+        ]) { _, error in
+            isSendingEmail = false
+            if let err = error {
+                emailError = err.localizedDescription
+            } else {
+                emailSent = true
+            }
+        }
+    }
+
     private func currentSemester() -> String {
         let date = Date()
         let calendar = Calendar.current

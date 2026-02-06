@@ -214,66 +214,134 @@ struct AttendanceAnalyticsView: View {
     
     private func loadData() {
         isLoading = true
-        
-        // Generate sample data based on selected period
-        // In production, this would fetch from Firestore
+        let cal = Calendar.current
+        let now = Date()
         
         switch selectedPeriod {
-        case 0: // Week
-            weeklyData = [
-                DayAttendance(dayName: "Mon", presentCount: 145, tardyCount: 8, absentCount: 12),
-                DayAttendance(dayName: "Tue", presentCount: 152, tardyCount: 5, absentCount: 8),
-                DayAttendance(dayName: "Wed", presentCount: 148, tardyCount: 10, absentCount: 7),
-                DayAttendance(dayName: "Thu", presentCount: 155, tardyCount: 4, absentCount: 6),
-                DayAttendance(dayName: "Fri", presentCount: 140, tardyCount: 12, absentCount: 13)
-            ]
-            
-            let totalPresent = weeklyData.reduce(0) { $0 + $1.presentCount }
-            let totalTardy = weeklyData.reduce(0) { $0 + $1.tardyCount }
-            let totalAbsent = weeklyData.reduce(0) { $0 + $1.absentCount }
-            let total = totalPresent + totalTardy + totalAbsent
-            
-            overallStats = AttendanceStats(
-                presentCount: totalPresent,
-                tardyCount: totalTardy,
-                absentCount: totalAbsent,
-                totalCount: total
-            )
-            
-        case 1: // Month
-            monthlyData = [
-                MonthAttendance(monthName: "Week 1", attendanceRate: 94.5),
-                MonthAttendance(monthName: "Week 2", attendanceRate: 92.1),
-                MonthAttendance(monthName: "Week 3", attendanceRate: 95.8),
-                MonthAttendance(monthName: "Week 4", attendanceRate: 93.2)
-            ]
-            
-            _ = monthlyData.reduce(0) { $0 + $1.attendanceRate } / Double(monthlyData.count)
-            overallStats = AttendanceStats(
-                presentCount: 620,
-                tardyCount: 35,
-                absentCount: 45,
-                totalCount: 700
-            )
-            
-        default: // Year
-            monthlyData = [
-                MonthAttendance(monthName: "Sep", attendanceRate: 95.2),
-                MonthAttendance(monthName: "Oct", attendanceRate: 93.8),
-                MonthAttendance(monthName: "Nov", attendanceRate: 91.5),
-                MonthAttendance(monthName: "Dec", attendanceRate: 88.2),
-                MonthAttendance(monthName: "Jan", attendanceRate: 94.1)
-            ]
-            
-            overallStats = AttendanceStats(
-                presentCount: 2850,
-                tardyCount: 180,
-                absentCount: 270,
-                totalCount: 3300
-            )
+        case 0: // This Week
+            loadWeeklyData(calendar: cal, now: now)
+        case 1: // This Month
+            loadMonthlyData(calendar: cal, now: now)
+        default: // This Year
+            loadYearlyData(calendar: cal, now: now)
         }
+    }
+    
+    private func loadWeeklyData(calendar: Calendar, now: Date) {
+        let weekday = calendar.component(.weekday, from: now)
+        let daysBack = (weekday == 1 ? 6 : weekday - 2)
+        guard let weekStart = calendar.date(byAdding: .day, value: -daysBack, to: now) else { return }
+        let startOfWeek = calendar.startOfDay(for: weekStart)
         
-        isLoading = false
+        db.collection("attendance")
+            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: startOfWeek))
+            .whereField("date", isLessThan: Timestamp(date: calendar.date(byAdding: .day, value: 7, to: startOfWeek)!))
+            .getDocuments { snap, _ in
+                var dayBuckets: [String: (present: Int, tardy: Int, absent: Int)] = [:]
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateFormat = "EEE"
+                
+                snap?.documents.forEach { doc in
+                    let data = doc.data()
+                    guard let date = (data["date"] as? Timestamp)?.dateValue(),
+                          let status = data["status"] as? String else { return }
+                    let dayKey = dayFormatter.string(from: date)
+                    var bucket = dayBuckets[dayKey] ?? (0, 0, 0)
+                    switch status {
+                    case "present": bucket.present += 1
+                    case "tardy": bucket.tardy += 1
+                    default: bucket.absent += 1
+                    }
+                    dayBuckets[dayKey] = bucket
+                }
+                
+                let order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                weeklyData = order.compactMap { day in
+                    guard let b = dayBuckets[day] else { return DayAttendance(dayName: day, presentCount: 0, tardyCount: 0, absentCount: 0) }
+                    return DayAttendance(dayName: day, presentCount: b.present, tardyCount: b.tardy, absentCount: b.absent)
+                }
+                
+                let totalPresent = weeklyData.reduce(0) { $0 + $1.presentCount }
+                let totalTardy = weeklyData.reduce(0) { $0 + $1.tardyCount }
+                let totalAbsent = weeklyData.reduce(0) { $0 + $1.absentCount }
+                let total = totalPresent + totalTardy + totalAbsent
+                overallStats = AttendanceStats(presentCount: totalPresent, tardyCount: totalTardy, absentCount: totalAbsent, totalCount: total)
+                isLoading = false
+            }
+    }
+    
+    private func loadMonthlyData(calendar: Calendar, now: Date) {
+        guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)),
+              let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart) else { return }
+        
+        db.collection("attendance")
+            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: monthStart))
+            .whereField("date", isLessThan: Timestamp(date: nextMonth))
+            .getDocuments { snap, _ in
+                var weekBuckets: [String: (total: Int, present: Int)] = [:]
+                let weekFormatter = DateFormatter()
+                weekFormatter.dateFormat = "'Week' w"
+                
+                snap?.documents.forEach { doc in
+                    let data = doc.data()
+                    guard let date = (data["date"] as? Timestamp)?.dateValue(),
+                          let status = data["status"] as? String else { return }
+                    let weekKey = weekFormatter.string(from: date)
+                    var bucket = weekBuckets[weekKey] ?? (0, 0)
+                    bucket.total += 1
+                    if status == "present" || status == "tardy" { bucket.present += 1 }
+                    weekBuckets[weekKey] = bucket
+                }
+                
+                let sorted = weekBuckets.sorted { ($0.key) < ($1.key) }
+                monthlyData = sorted.map { MonthAttendance(monthName: $0.key, attendanceRate: $0.value.total > 0 ? Double($0.value.present) / Double($0.value.total) * 100 : 0) }
+                
+                let totalPresent = weekBuckets.values.reduce(0) { $0 + $1.present }
+                let totalCount = weekBuckets.values.reduce(0) { $0 + $1.total }
+                let tardyCount = 0
+                let absentCount = max(0, totalCount - totalPresent - tardyCount)
+                overallStats = AttendanceStats(presentCount: totalPresent, tardyCount: tardyCount, absentCount: absentCount, totalCount: totalCount)
+                isLoading = false
+            }
+    }
+    
+    private func loadYearlyData(calendar: Calendar, now: Date) {
+        guard let yearStart = calendar.date(from: calendar.dateComponents([.year], from: now)),
+              let nextYear = calendar.date(byAdding: .year, value: 1, to: yearStart) else { return }
+        
+        db.collection("attendance")
+            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: yearStart))
+            .whereField("date", isLessThan: Timestamp(date: nextYear))
+            .getDocuments { snap, _ in
+                var monthBuckets: [String: (total: Int, present: Int)] = [:]
+                let monthFormatter = DateFormatter()
+                monthFormatter.dateFormat = "MMM"
+                
+                snap?.documents.forEach { doc in
+                    let data = doc.data()
+                    guard let date = (data["date"] as? Timestamp)?.dateValue(),
+                          let status = data["status"] as? String else { return }
+                    let monthKey = monthFormatter.string(from: date)
+                    var bucket = monthBuckets[monthKey] ?? (0, 0)
+                    bucket.total += 1
+                    if status == "present" || status == "tardy" { bucket.present += 1 }
+                    monthBuckets[monthKey] = bucket
+                }
+                
+                let order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                monthlyData = order.compactMap { month in
+                    guard let b = monthBuckets[month] else { return nil }
+                    return MonthAttendance(monthName: month, attendanceRate: b.total > 0 ? Double(b.present) / Double(b.total) * 100 : 0)
+                }
+                
+                let totalPresent = monthBuckets.values.reduce(0) { $0 + $1.present }
+                let totalCount = monthBuckets.values.reduce(0) { $0 + $1.total }
+                overallStats = AttendanceStats(presentCount: totalPresent, tardyCount: 0, absentCount: max(0, totalCount - totalPresent), totalCount: totalCount)
+                isLoading = false
+            }
     }
 }
 

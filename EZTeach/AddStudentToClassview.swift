@@ -25,14 +25,17 @@ struct AddStudentToClassView: View {
     private let db = Firestore.firestore()
     
     private var filteredStudents: [Student] {
-        if searchText.isEmpty {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        if q.isEmpty {
             return students.filter { !enrolledStudentIds.contains($0.id) }
         }
         return students.filter { student in
             !enrolledStudentIds.contains(student.id) &&
-            (student.firstName.localizedCaseInsensitiveContains(searchText) ||
-             student.lastName.localizedCaseInsensitiveContains(searchText) ||
-             student.studentCode.localizedCaseInsensitiveContains(searchText))
+            (student.firstName.localizedCaseInsensitiveContains(q) ||
+             student.middleName.localizedCaseInsensitiveContains(q) ||
+             student.lastName.localizedCaseInsensitiveContains(q) ||
+             student.fullName.localizedCaseInsensitiveContains(q) ||
+             student.studentCode.localizedCaseInsensitiveContains(q))
         }
     }
 
@@ -44,7 +47,7 @@ struct AddStudentToClassView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
-                    TextField("Search by name or student code...", text: $searchText)
+                    TextField("Search by name or Student ID...", text: $searchText)
                         .textFieldStyle(.plain)
                     
                     if !searchText.isEmpty {
@@ -115,13 +118,23 @@ struct AddStudentToClassView: View {
                 } else {
                     List {
                         ForEach(filteredStudents) { student in
-                            StudentRowView(
-                                student: student,
-                                isSelected: selectedStudents.contains(student.id)
-                            )
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                toggleSelection(student.id)
+                            HStack(spacing: 0) {
+                                StudentRowView(
+                                    student: student,
+                                    isSelected: selectedStudents.contains(student.id)
+                                )
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    toggleSelection(student.id)
+                                }
+                                NavigationLink {
+                                    StudentProfileView(student: student)
+                                } label: {
+                                    Image(systemName: "person.crop.circle")
+                                        .font(.title3)
+                                        .foregroundColor(EZTeachColors.accent)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -283,6 +296,7 @@ struct CreateStudentView: View {
     @State private var gradeLevel = 1
     @State private var dateOfBirth = Date()
     @State private var notes = ""
+    @State private var email = ""
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showDuplicateWarning = false
@@ -326,6 +340,12 @@ struct CreateStudentView: View {
                     }
                 }
                 
+                Section("Email (Optional)") {
+                    TextField("student@example.com", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                }
+                
                 Section("Notes (Optional)") {
                     TextEditor(text: $notes)
                         .frame(height: 80)
@@ -347,7 +367,7 @@ struct CreateStudentView: View {
                     HStack {
                         Image(systemName: "key.fill")
                             .foregroundColor(EZTeachColors.accent)
-                        Text("A unique Student Code will be generated automatically for parent linking.")
+                        Text("A unique Student ID will be generated automatically. Students sign in with Student ID + default password (Student ID!).")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -381,7 +401,7 @@ struct CreateStudentView: View {
                 }
             } message: {
                 if let existing = existingStudent {
-                    Text("A student named \(existing.fullName) with the same date of birth already exists in this school.\n\nStudent Code: \(existing.studentCode)\n\nAre you sure this is a different student?")
+                    Text("A student named \(existing.fullName) with the same date of birth already exists in this school.\n\nStudent ID: \(existing.studentCode)\nDefault password: \(existing.studentCode)!\n\nAre you sure this is a different student?")
                 } else {
                     Text("A student with similar information already exists. Are you sure you want to create a new record?")
                 }
@@ -423,52 +443,34 @@ struct CreateStudentView: View {
             checkForDuplicateAndCreate()
             return
         }
-        
+        performCreateStudent()
+    }
+
+    private func performCreateStudent() {
         isLoading = true
-        let studentCode = Student.generateStudentCode()
-        let ref = db.collection("students").document()
-        
-        // Create duplicate key for future checks
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        let dobString = formatter.string(from: dateOfBirth)
-        let duplicateKey = "\(firstName.lowercased())_\(middleName.lowercased())_\(lastName.lowercased())_\(dobString)"
-        
-        let data: [String: Any] = [
-            "firstName": firstName.trimmingCharacters(in: .whitespaces),
-            "middleName": middleName.trimmingCharacters(in: .whitespaces),
-            "lastName": lastName.trimmingCharacters(in: .whitespaces),
-            "schoolId": schoolId,
-            "studentCode": studentCode,
-            "gradeLevel": gradeLevel,
-            "dateOfBirth": Timestamp(date: dateOfBirth),
-            "notes": notes,
-            "parentIds": [],
-            "duplicateKey": duplicateKey,
-            "createdAt": Timestamp()
-        ]
-        
-        ref.setData(data) { error in
-            isLoading = false
-            if let error = error {
-                errorMessage = error.localizedDescription
-            } else {
-                let student = Student(
-                    id: ref.documentID,
+        errorMessage = ""
+        Task {
+            do {
+                let student = try await FirestoreService.shared.createStudent(
                     firstName: firstName,
                     middleName: middleName,
                     lastName: lastName,
-                    schoolId: schoolId,
-                    studentCode: studentCode,
                     gradeLevel: gradeLevel,
+                    schoolId: schoolId,
                     dateOfBirth: dateOfBirth,
                     notes: notes,
-                    parentIds: [],
-                    createdAt: Date()
+                    email: email.trimmingCharacters(in: .whitespaces).isEmpty ? nil : email
                 )
-                onCreated(student)
-                dismiss()
+                await MainActor.run {
+                    onCreated(student)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = (error as NSError).localizedDescription
+                }
             }
+            await MainActor.run { isLoading = false }
         }
     }
 }

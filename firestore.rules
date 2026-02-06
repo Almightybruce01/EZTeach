@@ -36,7 +36,11 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return isSchoolAdmin() || isTeacher() || isSub();
+      return isSchoolAdmin() || isTeacher() || isSub() || role() == "librarian";
+    }
+
+    function isLibrarian() {
+      return signedIn() && role() == "librarian";
     }
 
     function isParentOfStudent(studentId) {
@@ -44,12 +48,44 @@ service cloud.firestore {
         request.auth.uid in get(/databases/$(database)/documents/students/$(studentId)).data.parentIds;
     }
 
+    // Check if parent has children in this school
+    function isParentAtSchool(schoolId) {
+      return isParent() && activeSchool() == schoolId;
+    }
+
+    // Check if parent has a child in this class (via parentStudentLinks)
+    function isParentOfStudentInClass(classId) {
+      return isParent();
+      // Note: Full verification happens at query time by filtering studentId
+    }
+
+    function isDistrictAdminForSchool(schoolId) {
+      return signedIn() && role() == "district" &&
+        userDoc().data.keys().hasAny(["districtId"]) &&
+        userDoc().data.districtId != null &&
+        userDoc().data.districtId != "" &&
+        exists(/databases/$(database)/documents/districts/$(userDoc().data.districtId)) &&
+        get(/databases/$(database)/documents/districts/$(userDoc().data.districtId)).data.ownerUid == request.auth.uid &&
+        schoolId in get(/databases/$(database)/documents/districts/$(userDoc().data.districtId)).data.get("schoolIds", []);
+    }
+
+    function schoolHasActiveSubscription(schoolId) {
+      let school = get(/databases/$(database)/documents/schools/$(schoolId)).data;
+      return school.get("subscriptionActive", false) == true;
+    }
+
+    function isStudent() {
+      return signedIn() && exists(/databases/$(database)/documents/students/$(request.auth.uid));
+    }
+    function studentSchoolId() {
+      return get(/databases/$(database)/documents/students/$(request.auth.uid)).data.schoolId;
+    }
+
     // ================= USERS =================
     match /users/{userId} {
       allow read, write: if signedIn() && request.auth.uid == userId;
     }
 
-    // ================= SCHOOLS =================
     match /schools/{schoolId} {
       allow create: if signedIn();
       allow read: if signedIn();
@@ -69,8 +105,10 @@ service cloud.firestore {
     // ================= TEACHERS =================
     match /teachers/{teacherDocId} {
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        resource.data.userId == request.auth.uid
+        resource.data.userId == request.auth.uid ||
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        ((isTeacher() || isSub()) && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId)) ||
+        (role() == "district" && isDistrictAdminForSchool(resource.data.schoolId))
       );
 
       allow create: if signedIn() && (
@@ -89,8 +127,10 @@ service cloud.firestore {
     // ================= SUBS =================
     match /subs/{subDocId} {
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        resource.data.userId == request.auth.uid
+        resource.data.userId == request.auth.uid ||
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        ((isTeacher() || isSub()) && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId)) ||
+        (role() == "district" && isDistrictAdminForSchool(resource.data.schoolId))
       );
 
       allow create: if signedIn() && (
@@ -143,21 +183,24 @@ service cloud.firestore {
 
     // ================= STUDENTS =================
     match /students/{studentId} {
-      // Staff can read students in their school
-      // Parents can read their own children
+      // Student self-read (no userDoc needed); school owner; staff/district with subscription; district admin; linked parent
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        request.auth.uid in resource.data.parentIds
+        request.auth.uid == studentId ||
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        ((isTeacher() || isSub() || role() == "district") && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId)) ||
+        (role() == "district" && isDistrictAdminForSchool(resource.data.schoolId)) ||
+        (isParent() && request.auth.uid in resource.data.parentIds && schoolHasActiveSubscription(resource.data.schoolId))
       );
 
       allow create: if signedIn() && 
         (isSchoolAdmin() || isTeacher()) && 
         request.resource.data.schoolId == activeSchool();
 
-      // Schools can update any student
-      // Parents can update parentIds to add themselves (via linking)
+      // Schools, teachers, districts can update; parents can only update parentIds (via linking)
       allow update: if signedIn() && (
         (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (isTeacher() && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId)) ||
+        (role() == "district" && isDistrictAdminForSchool(resource.data.schoolId)) ||
         (isParent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parentIds']))
       );
 
@@ -166,9 +209,11 @@ service cloud.firestore {
 
     // ================= CLASSES =================
     match /classes/{classId} {
+      // School owner always; teachers/subs/parents need school to have active subscription
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        (isParent() && exists(/databases/$(database)/documents/class_rosters/$(classId + '_' + request.auth.uid)))
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        ((isTeacher() || isSub() || role() == "district") && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId)) ||
+        (isParent() && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId))
       );
 
       allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
@@ -184,8 +229,10 @@ service cloud.firestore {
     // ================= CLASS ROSTERS =================
     match /class_rosters/{rosterId} {
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        (isParent() && isParentOfStudent(resource.data.studentId))
+        (isStudent() && resource.data.studentId == request.auth.uid) ||
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        ((isTeacher() || isSub() || role() == "district") && resource.data.schoolId == activeSchool() && schoolHasActiveSubscription(resource.data.schoolId)) ||
+        (isParent() && isParentOfStudent(resource.data.studentId) && schoolHasActiveSubscription(resource.data.schoolId))
       );
 
       allow create, update, delete: if signedIn() && (
@@ -196,17 +243,24 @@ service cloud.firestore {
 
     // ================= EVENTS =================
     match /events/{eventId} {
-      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      allow read: if signedIn() && (
+        (isStudent() && resource.data.schoolId == studentSchoolId() && resource.data.get('teachersOnly', false) == false) ||
+        (resource.data.schoolId == activeSchool() && (
+        isSchoolAdmin() ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || (isParent() && resource.data.get('teachersOnly', false) == false)))
+        ))
+      );
       allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
       allow update, delete: if isSchoolAdmin() && resource.data.schoolId == activeSchool();
     }
 
     // ================= ANNOUNCEMENTS =================
     match /announcements/{announcementId} {
-      // Parents can read non-teachersOnly announcements for their school
+      // School owner always; teachers/subs/parents need school subscription
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        (isParent() && resource.data.teachersOnly == false)
+        (isStudent() && resource.data.schoolId == studentSchoolId() && resource.data.get('teachersOnly', false) == false) ||
+        (resource.data.schoolId == activeSchool() && (isSchoolAdmin() ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || (isParent() && resource.data.get('teachersOnly', false) == false)))))
       );
 
       allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
@@ -215,11 +269,11 @@ service cloud.firestore {
 
     // ================= GRADE ASSIGNMENTS =================
     match /gradeAssignments/{assignmentId} {
-      // Staff can read assignments in their school
-      // Parents can read assignments in their child's classes
+      // School owner always; teachers/subs/parents need school subscription
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        isParent()
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || role() == "district") && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isParent() && resource.data.schoolId == activeSchool())
       );
 
       allow create: if signedIn() && 
@@ -234,11 +288,12 @@ service cloud.firestore {
 
     // ================= STUDENT GRADES =================
     match /studentGrades/{gradeId} {
-      // Staff can read grades in their school
-      // Parents can ONLY read grades for their own children
+      // School owner always; teachers/subs/parents need school subscription (schoolId from student)
       allow read: if signedIn() && (
-        (isStaff() && activeSchool() != null) ||
-        (isParent() && isParentOfStudent(resource.data.studentId))
+        (isStudent() && resource.data.studentId == request.auth.uid) ||
+        (isSchoolAdmin() && get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId) && (isStaff() && get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId == activeSchool())) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId) && isParent() && isParentOfStudent(resource.data.studentId))
       );
 
       allow create, update: if signedIn() && (
@@ -252,8 +307,9 @@ service cloud.firestore {
     // ================= GRADE OVERRIDES =================
     match /gradeOverrides/{overrideId} {
       allow read: if signedIn() && (
-        isStaff() ||
-        (isParent() && isParentOfStudent(resource.data.studentId))
+        (isSchoolAdmin() && get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId) && isStaff()) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.schoolId) && isParent() && isParentOfStudent(resource.data.studentId))
       );
 
       allow create, update: if signedIn() && (isSchoolAdmin() || isTeacher());
@@ -269,7 +325,11 @@ service cloud.firestore {
 
     // ================= SUB REQUESTS =================
     match /subRequests/{requestId} {
-      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      // School owner always; teachers/subs need school subscription
+      allow read: if signedIn() && resource.data.schoolId == activeSchool() && (
+        isSchoolAdmin() ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || role() == "district"))
+      );
 
       allow create: if signedIn() && 
         (isSchoolAdmin() || isTeacher()) && 
@@ -286,7 +346,8 @@ service cloud.firestore {
 
     // ================= TEACHER AVAILABILITY =================
     match /teacherAvailability/{availId} {
-      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      // Only staff can read teacher availability (not parents)
+      allow read: if signedIn() && isStaff() && resource.data.schoolId == activeSchool();
 
       allow create: if signedIn() && 
         (isTeacher() || isSchoolAdmin()) &&
@@ -305,9 +366,11 @@ service cloud.firestore {
 
     // ================= ATTENDANCE =================
     match /attendance/{attendanceId} {
+      // School owner always; teachers/subs/parents need school subscription
       allow read: if signedIn() && (
-        resource.data.schoolId == activeSchool() ||
-        (isParent() && isParentOfStudent(resource.data.studentId))
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isStaff() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isParent() && isParentOfStudent(resource.data.studentId))
       );
 
       allow create, update: if signedIn() && (
@@ -320,16 +383,23 @@ service cloud.firestore {
 
     // ================= BELL SCHEDULES =================
     match /bellSchedules/{scheduleId} {
-      allow read: if signedIn() && resource.data.schoolId == activeSchool();
-      allow create, update, delete: if isSchoolAdmin() && resource.data.schoolId == activeSchool();
+      allow read: if signedIn() && (
+        (isStudent() && resource.data.schoolId == studentSchoolId()) ||
+        (resource.data.schoolId == activeSchool() || isDistrictAdminForSchool(resource.data.schoolId))
+      );
+      // Only school and district admins can create/update/delete
+      allow create: if (isSchoolAdmin() && request.resource.data.schoolId == activeSchool()) ||
+        (role() == "district" && isDistrictAdminForSchool(request.resource.data.schoolId));
+      allow update, delete: if (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (role() == "district" && isDistrictAdminForSchool(resource.data.schoolId));
     }
 
     // ================= DOCUMENTS =================
     match /documents/{docId} {
-      allow read: if signedIn() && (
+      // Staff can read all documents, parents can only read non-teachersOnly documents
+      allow read: if signedIn() && 
         resource.data.schoolId == activeSchool() &&
-        (resource.data.teachersOnly == false || isStaff())
-      );
+        (isStaff() || (isParent() && resource.data.get('teachersOnly', false) == false));
 
       allow create: if signedIn() && 
         (isSchoolAdmin() || isTeacher()) && 
@@ -390,22 +460,15 @@ service cloud.firestore {
 
     // ================= PROMO CODE USAGE =================
     match /promoCodeUsage/{usageId} {
-      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.schoolId == activeSchool()
+      );
       allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }
 
     // ================= SUB REVIEWS (ranking) =================
-    // District admins can read subReviews for any school in their district
-    function isDistrictAdminForSchool(schoolId) {
-      return signedIn() && role() == "district" &&
-        userDoc().data.keys().hasAny(["districtId"]) &&
-        userDoc().data.districtId != null &&
-        userDoc().data.districtId != "" &&
-        exists(/databases/$(database)/documents/districts/$(userDoc().data.districtId)) &&
-        get(/databases/$(database)/documents/districts/$(userDoc().data.districtId)).data.ownerUid == request.auth.uid &&
-        schoolId in get(/databases/$(database)/documents/districts/$(userDoc().data.districtId)).data.get("schoolIds", []);
-    }
     match /subReviews/{reviewId} {
       allow read: if signedIn() && (
         resource.data.schoolId == activeSchool() ||
@@ -422,9 +485,141 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ================= FUNDAY FRIDAY =================
+    match /fundayFridayPicks/{pickId} {
+      allow read: if signedIn();
+      allow create: if signedIn();  // Admin runs from dashboard
+      allow update, delete: if signedIn();
+    }
+
+    // ================= HOMEWORK =================
+    match /homework/{homeworkId} {
+      allow read: if signedIn() && (
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || role() == "district") && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isParent() && resource.data.schoolId == activeSchool()) ||
+        (isStudent() && resource.data.schoolId == studentSchoolId())
+      );
+      allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && (isSchoolAdmin() || isTeacher()) && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= BEHAVIOR INCIDENTS =================
+    match /behaviorIncidents/{incidentId} {
+      allow read: if signedIn() && (
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isStaff() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isParent() && isParentOfStudent(resource.data.studentId))
+      );
+      allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && (isSchoolAdmin() || isTeacher()) && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= GRADING SCALES =================
+    match /gradingScales/{scaleId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool() && (
+        isSchoolAdmin() || (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || isParent()))
+      );
+      allow create, update, delete: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+    }
+
+    // ================= BUS ROUTES =================
+    match /busRoutes/{routeId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool() && (
+        isSchoolAdmin() || (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || isParent()))
+      );
+      allow create, update, delete: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+    }
+
+    // ================= VIDEO MEETINGS =================
+    match /videoMeetings/{meetingId} {
+      allow read: if signedIn() && (
+        resource.data.hostId == request.auth.uid ||
+        request.auth.uid in resource.data.get("participantIds", [])
+      );
+      allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && (
+        resource.data.hostId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+    }
+
+    // ================= PORTFOLIO ITEMS =================
+    match /portfolioItems/{itemId} {
+      allow read: if signedIn() && (
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isStaff() && resource.data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(resource.data.schoolId) && isParent() && isParentOfStudent(resource.data.studentId))
+      );
+      allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && (isSchoolAdmin() || isTeacher()) && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= EMERGENCY ALERTS =================
+    match /emergencyAlerts/{alertId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      allow create: if signedIn() && isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && isSchoolAdmin() && resource.data.schoolId == activeSchool();
+    }
+
+    // ================= LUNCH MENUS =================
+    match /lunchMenus/{menuId} {
+      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      allow create, update, delete: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+    }
+
+    // ================= LESSON PLANS =================
+    match /lessonPlans/{planId} {
+      allow read: if signedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        (resource.data.schoolId == activeSchool() && resource.data.get("isShared", false) == true) ||
+        (isSchoolAdmin() && resource.data.schoolId == activeSchool())
+      );
+      allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
+      allow update, delete: if signedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isSchoolAdmin()
+      );
+    }
+
+    // ================= CLASS ENROLLMENTS =================
+    match /classEnrollments/{enrollmentId} {
+      allow read: if signedIn() && (
+        (isSchoolAdmin() && get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.schoolId) && (isStaff() || isParent()))
+      );
+      allow create, update, delete: if signedIn() && (isSchoolAdmin() || isTeacher());
+    }
+
+    // ================= CLASS GRADES =================
+    match /classGrades/{gradeDocId} {
+      allow read: if signedIn() && (
+        (isSchoolAdmin() && get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.schoolId == activeSchool()) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.schoolId) && isStaff()) ||
+        (schoolHasActiveSubscription(get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.schoolId) && isParent() && isParentOfStudent(resource.data.studentId))
+      );
+      allow create, update, delete: if signedIn() && (isSchoolAdmin() || isTeacher());
+    }
+
+    match /gameLeaderboards/{entryId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ================= SCHOOL LIBRARIES =================
+    match /schoolLibraries/{schoolId}/books/{bookId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && (
+        (role() == "school" && activeSchool() == schoolId) ||
+        (role() == "librarian" && activeSchool() == schoolId)
+      );
+    }
+
     // ================= RECOMMENDED ACTIVITIES =================
     match /recommendedActivities/{activityId} {
-      allow read: if signedIn() && resource.data.schoolId == activeSchool();
+      // Only staff can see recommended activities (not parents)
+      allow read: if signedIn() && isStaff() && resource.data.schoolId == activeSchool();
       allow create: if signedIn() && (isSchoolAdmin() || isTeacher()) && request.resource.data.schoolId == activeSchool();
       allow update, delete: if signedIn() && (
         (isSchoolAdmin() && resource.data.schoolId == activeSchool()) ||

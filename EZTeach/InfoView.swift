@@ -46,6 +46,20 @@ struct InfoView: View {
                             showSupport = true
                         }
 
+                        NavigationLink {
+                            WhyEZTeachView()
+                        } label: {
+                            helpButtonLabel(icon: "text.alignleft", title: "Why EZTeach", subtitle: "Sales pitch and features", color: EZTeachColors.accent)
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink {
+                            WhyEZTeachPamphletView()
+                        } label: {
+                            helpButtonLabel(icon: "doc.text.fill", title: "Why EZTeach Pamphlet", subtitle: "6-page brochure", color: EZTeachColors.accent)
+                        }
+                        .buttonStyle(.plain)
+
                         helpButton(
                             icon: "book.fill",
                             title: "User Guide",
@@ -110,6 +124,34 @@ struct InfoView: View {
                 SupportView()
             }
         }
+    }
+
+    private func helpButtonLabel(icon: String, title: String, subtitle: String, color: Color) -> some View {
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 50, height: 50)
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(14)
     }
 
     private func helpButton(icon: String, title: String, subtitle: String, color: Color, action: @escaping () -> Void) -> some View {

@@ -218,8 +218,8 @@ struct AddSchoolByCodeView: View {
             onSuccess?()
             dismiss()
 
-        } catch {
-            errorMessage = "Invalid school code. Please check and try again."
+        } catch let err as NSError {
+            errorMessage = err.localizedDescription
 
             // Haptic feedback
             let generator = UINotificationFeedbackGenerator()

@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 struct SchoolInfoView: View {
 
@@ -19,8 +20,12 @@ struct SchoolInfoView: View {
     @State private var city = ""
     @State private var state = ""
     @State private var zip = ""
+    @State private var districtId: String?
+    @State private var districtName: String?
     @State private var isLoading = true
     @State private var showEditSchoolInfo = false
+    @State private var isLeavingDistrict = false
+    @State private var leaveDistrictError: String?
 
     private let db = Firestore.firestore()
 
@@ -92,6 +97,10 @@ struct SchoolInfoView: View {
                         .padding()
                         .background(Color(.secondarySystemBackground))
                         .cornerRadius(16)
+
+                        if role == "school" {
+                            districtSection
+                        }
                     }
                     .padding()
                 }
@@ -113,6 +122,72 @@ struct SchoolInfoView: View {
             }
         }
         .onAppear(perform: loadUserAndSchool)
+        .alert("Leave District", isPresented: Binding(
+            get: { leaveDistrictError != nil },
+            set: { if !$0 { leaveDistrictError = nil } }
+        )) {
+            Button("OK") { leaveDistrictError = nil }
+        } message: {
+            Text(leaveDistrictError ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var districtSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("District", systemImage: "building.2")
+                .font(.subheadline.bold())
+                .foregroundColor(.secondary)
+
+            if districtId != nil {
+                HStack {
+                    Text(districtName ?? "Part of district")
+                        .font(.body)
+                    Spacer()
+                    Button {
+                        leaveDistrict()
+                    } label: {
+                        if isLeavingDistrict {
+                            ProgressView().scaleEffect(0.8)
+                        } else {
+                            Text("Leave District")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundColor(EZTeachColors.error)
+                        }
+                    }
+                    .disabled(isLeavingDistrict)
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(12)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Not assigned to a district.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                    Text("Your district administrator can add this school using your 6-digit school code in their district management.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(12)
+            }
+        }
+    }
+
+    private func leaveDistrict() {
+        guard let sid = schoolId else { return }
+        isLeavingDistrict = true
+        Functions.functions().httpsCallable("schoolLeaveDistrict").call(["schoolId": sid]) { _, error in
+            isLeavingDistrict = false
+            if let err = error as NSError? {
+                leaveDistrictError = (err.userInfo["NSLocalizedDescription"] as? String) ?? err.localizedDescription
+                return
+            }
+            loadSchoolInfo(schoolId: sid)
+            NotificationCenter.default.post(name: .schoolDataDidChange, object: nil)
+        }
     }
 
     private func infoRow(icon: String, label: String, value: String) -> some View {
@@ -177,6 +252,14 @@ struct SchoolInfoView: View {
             city = data["city"] as? String ?? ""
             state = data["state"] as? String ?? ""
             zip = data["zip"] as? String ?? ""
+            districtId = data["districtId"] as? String
+            if let did = data["districtId"] as? String {
+                db.collection("districts").document(did).getDocument { dSnap, _ in
+                    districtName = dSnap?.data()?["name"] as? String
+                }
+            } else {
+                districtName = nil
+            }
             isLoading = false
         }
     }

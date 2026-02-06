@@ -142,15 +142,15 @@ struct AnalyticsDashboardView: View {
                     .foregroundColor(.secondary)
             }
             
-            // Simple bar chart
+            // Simple bar chart (uses attendanceRate for first bar, placeholder for trend)
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<7, id: \.self) { i in
                     VStack(spacing: 4) {
-                        let rate = Double.random(in: 85...98) // Sample data
+                        let rate = i == 6 ? attendanceRate : max(70, min(98, attendanceRate + Double.random(in: -5...5)))
                         
                         RoundedRectangle(cornerRadius: 4)
                             .fill(rate >= 90 ? EZTeachColors.success : EZTeachColors.warning)
-                            .frame(width: 30, height: CGFloat(rate))
+                            .frame(width: 30, height: CGFloat(max(10, rate)))
                         
                         Text(dayLabel(for: i))
                             .font(.caption2)
@@ -323,9 +323,32 @@ struct AnalyticsDashboardView: View {
                 group.leave()
             }
         
+        // Load attendance from Firestore
+        group.enter()
+        let now = Date()
+        let cal = Calendar.current
+        guard let weekStart = cal.date(byAdding: .day, value: -7, to: now) else {
+            group.leave()
+            group.notify(queue: .main) { isLoading = false }
+            return
+        }
+        let startOfWeek = cal.startOfDay(for: weekStart)
+        db.collection("attendance")
+            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("date", isGreaterThanOrEqualTo: Timestamp(date: startOfWeek))
+            .getDocuments { snap, _ in
+                let docs = snap?.documents ?? []
+                var present = 0, total = 0
+                docs.forEach { doc in
+                    total += 1
+                    let status = doc["status"] as? String ?? ""
+                    if status == "present" || status == "tardy" { present += 1 }
+                }
+                attendanceRate = total > 0 ? Double(present) / Double(total) * 100 : 0
+                group.leave()
+            }
+        
         group.notify(queue: .main) {
-            // Calculate attendance rate (sample for now)
-            attendanceRate = Double.random(in: 88...96)
             isLoading = false
         }
     }

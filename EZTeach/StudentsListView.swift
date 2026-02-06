@@ -17,16 +17,28 @@ struct StudentsListView: View {
     @State private var showAddStudent = false
     @State private var userRole = ""
     @State private var searchText = ""
+    @State private var isDistrict = false
+    @State private var schoolIds: [String] = []
+    @State private var selectedSchoolId = ""
+    @State private var schoolNames: [String: String] = [:]
 
     private let db = Firestore.firestore()
+
+    private var effectiveSchoolId: String {
+        !selectedSchoolId.isEmpty ? selectedSchoolId : schoolId
+    }
     
     private var filteredStudents: [Student] {
         if searchText.isEmpty {
             return students
         }
+        let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
         return students.filter {
-            $0.fullName.localizedCaseInsensitiveContains(searchText) ||
-            $0.studentCode.localizedCaseInsensitiveContains(searchText)
+            $0.fullName.localizedCaseInsensitiveContains(q) ||
+            $0.firstName.localizedCaseInsensitiveContains(q) ||
+            $0.middleName.localizedCaseInsensitiveContains(q) ||
+            $0.lastName.localizedCaseInsensitiveContains(q) ||
+            $0.studentCode.localizedCaseInsensitiveContains(q)
         }
     }
 
@@ -34,9 +46,20 @@ struct StudentsListView: View {
         ZStack {
             EZTeachColors.background.ignoresSafeArea()
             
-            if students.isEmpty {
-                emptyState
-            } else {
+            VStack(spacing: 0) {
+                if isDistrict && schoolIds.count > 1 {
+                    Picker("School", selection: $selectedSchoolId) {
+                        ForEach(schoolIds, id: \.self) { sid in
+                            Text(schoolNames[sid] ?? "School").tag(sid)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .padding()
+                }
+                
+                if students.isEmpty {
+                    emptyState
+                } else {
                 List {
                     ForEach(filteredStudents) { student in
                         NavigationLink {
@@ -47,7 +70,8 @@ struct StudentsListView: View {
                     }
                     .onDelete(perform: deleteStudents)
                 }
-                .searchable(text: $searchText, prompt: "Search by name or code")
+                .searchable(text: $searchText, prompt: "Search by name or Student ID")
+                }
             }
         }
         .navigationTitle("Students")
@@ -63,9 +87,10 @@ struct StudentsListView: View {
             }
         }
         .sheet(isPresented: $showAddStudent) {
-            AddStudentView(schoolId: schoolId) { loadStudents() }
+            AddStudentView(schoolId: effectiveSchoolId) { loadStudents() }
         }
         .onAppear(perform: loadInitialData)
+        .onChange(of: selectedSchoolId) { _, _ in loadStudents() }
     }
     
     // MARK: - Student Row
@@ -93,7 +118,7 @@ struct StudentsListView: View {
                     Text("•")
                         .foregroundColor(.secondary)
                     
-                    Text("Code: \(student.studentCode)")
+                    Text("Student ID: \(student.studentCode)")
                         .font(.caption.monospaced())
                         .foregroundColor(.secondary)
                 }
@@ -156,23 +181,57 @@ struct StudentsListView: View {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         db.collection("users").document(uid).getDocument { snap, _ in
-            guard let data = snap?.data(),
-                  let school = data["activeSchoolId"] as? String else {
-                hasSchool = false
-                return
+            guard let data = snap?.data() else { return }
+            let role = data["role"] as? String ?? ""
+            let district = (role == "district")
+
+            DispatchQueue.main.async {
+                userRole = role
+                isDistrict = district
             }
-            
-            schoolId = school
-            userRole = data["role"] as? String ?? ""
-            loadStudents()
+
+            if district, let districtId = data["districtId"] as? String {
+                db.collection("districts").document(districtId).getDocument { dSnap, _ in
+                    let ids = dSnap?.data()?["schoolIds"] as? [String] ?? []
+                    let firstId = ids.first ?? ""
+                    var names: [String: String] = [:]
+                    let group = DispatchGroup()
+                    for sid in ids {
+                        group.enter()
+                        db.collection("schools").document(sid).getDocument { sSnap, _ in
+                            names[sid] = sSnap?.data()?["name"] as? String ?? "School"
+                            group.leave()
+                        }
+                    }
+                    group.notify(queue: .main) {
+                        schoolIds = ids
+                        selectedSchoolId = firstId
+                        schoolNames = names
+                        schoolId = firstId
+                        hasSchool = !ids.isEmpty
+                        loadStudents()
+                    }
+                }
+            } else if let school = data["activeSchoolId"] as? String {
+                DispatchQueue.main.async {
+                    schoolId = school
+                    schoolIds = [school]
+                    selectedSchoolId = school
+                    hasSchool = true
+                    loadStudents()
+                }
+            } else {
+                DispatchQueue.main.async { hasSchool = false }
+            }
         }
     }
     
     private func loadStudents() {
-        guard !schoolId.isEmpty else { return }
+        let sid = effectiveSchoolId
+        guard !sid.isEmpty else { return }
         
         db.collection("students")
-            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("schoolId", isEqualTo: sid)
             .order(by: "lastName")
             .getDocuments { snapshot, _ in
                 students = snapshot?.documents.compactMap { Student.fromDocument($0) } ?? []
@@ -193,14 +252,15 @@ struct AddStudentView: View {
     @State private var dateOfBirth = Date()
     @State private var hasDOB = false
     @State private var notes = ""
+    @State private var email = ""
     
     @State private var isSaving = false
     @State private var createdStudent: Student?
     @State private var showSuccess = false
+    @State private var saveError: String?
     
     @Environment(\.dismiss) private var dismiss
-    private let db = Firestore.firestore()
-    
+
     private var isFormValid: Bool {
         !firstName.isEmpty && !middleName.isEmpty && !lastName.isEmpty
     }
@@ -236,6 +296,15 @@ struct AddStudentView: View {
                     if hasDOB {
                         DatePicker("Birthday", selection: $dateOfBirth, displayedComponents: .date)
                     }
+                }
+                
+                Section("Email (Optional)") {
+                    TextField("student@example.com", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                    Text("Teachers, schools, and districts can add a student's email to their profile.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 
                 Section("Notes (Optional)") {
@@ -274,60 +343,42 @@ struct AddStudentView: View {
                 }
             } message: {
                 if let student = createdStudent {
-                    Text("Student Code: \(student.studentCode)\n\nShare this code with parents so they can link their account to view grades.")
+                    Text("Student ID: \(student.studentCode)\n\nDefault password: \(student.studentCode)!\n\nStudents sign in with Student Login using these credentials. Share the Student ID with parents so they can link their account.")
                 }
+            }
+            .alert("Error", isPresented: .constant(saveError != nil)) {
+                Button("OK") { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
             }
         }
     }
     
     private func saveStudent() {
+        guard isFormValid else { return }
         isSaving = true
-        
-        let studentCode = Student.generateStudentCode()
-        let ref = db.collection("students").document()
-        
-        // Create duplicate key for future checks
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        let dobString = hasDOB ? formatter.string(from: dateOfBirth) : "nodob"
-        let duplicateKey = "\(firstName.lowercased())_\(middleName.lowercased())_\(lastName.lowercased())_\(dobString)"
-        
-        var data: [String: Any] = [
-            "firstName": firstName.trimmingCharacters(in: .whitespaces),
-            "middleName": middleName.trimmingCharacters(in: .whitespaces),
-            "lastName": lastName.trimmingCharacters(in: .whitespaces),
-            "schoolId": schoolId,
-            "studentCode": studentCode,
-            "gradeLevel": gradeLevel,
-            "notes": notes,
-            "parentIds": [],
-            "duplicateKey": duplicateKey,
-            "createdAt": Timestamp()
-        ]
-        
-        if hasDOB {
-            data["dateOfBirth"] = Timestamp(date: dateOfBirth)
-        }
-        
-        ref.setData(data) { error in
-            isSaving = false
-            
-            if error == nil {
-                createdStudent = Student(
-                    id: ref.documentID,
+        Task {
+            do {
+                let student = try await FirestoreService.shared.createStudent(
                     firstName: firstName,
                     middleName: middleName,
                     lastName: lastName,
-                    schoolId: schoolId,
-                    studentCode: studentCode,
                     gradeLevel: gradeLevel,
+                    schoolId: schoolId,
                     dateOfBirth: hasDOB ? dateOfBirth : nil,
                     notes: notes,
-                    parentIds: [],
-                    createdAt: Date()
+                    email: email.trimmingCharacters(in: .whitespaces).isEmpty ? nil : email
                 )
-                showSuccess = true
+                await MainActor.run {
+                    createdStudent = student
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    saveError = (error as NSError).localizedDescription
+                }
             }
+            await MainActor.run { isSaving = false }
         }
     }
 }

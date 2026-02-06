@@ -13,25 +13,50 @@ struct ClassRosterView: View {
     let classModel: SchoolClass
 
     @State private var students: [Student] = []
+    @State private var searchText = ""
     @State private var showAddStudent = false
 
     private let db = Firestore.firestore()
+
+    private var filteredStudents: [Student] {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        if q.isEmpty { return students }
+        return students.filter {
+            $0.fullName.localizedCaseInsensitiveContains(q) ||
+            $0.firstName.localizedCaseInsensitiveContains(q) ||
+            $0.lastName.localizedCaseInsensitiveContains(q) ||
+            $0.studentCode.localizedCaseInsensitiveContains(q)
+        }
+    }
 
     var body: some View {
         List {
             if students.isEmpty {
                 Text("No students in this class yet.")
                     .foregroundColor(.secondary)
+            } else if filteredStudents.isEmpty {
+                Text("No students match \"\(searchText)\"")
+                    .foregroundColor(.secondary)
             } else {
-                ForEach(students) { student in
+                ForEach(filteredStudents) { student in
                     NavigationLink {
                         StudentProfileView(student: student)
                     } label: {
-                        Text(student.name)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(student.name)
+                                    .font(.subheadline.weight(.medium))
+                                Text("Student ID: \(student.studentCode)")
+                                    .font(.caption.monospaced())
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
                     }
                 }
             }
         }
+        .searchable(text: $searchText, prompt: "Search by name or Student ID")
         .navigationTitle("Roster")
         .toolbar {
             Button {

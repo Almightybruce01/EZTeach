@@ -101,8 +101,8 @@ struct SupportView: View {
                 )
 
                 faqItem(
-                    question: "How do I manage my subscription?",
-                    answer: "Go to Account > Subscription to view your billing details, update payment methods, or cancel your subscription."
+                    question: "How do I manage my account?",
+                    answer: "Go to Account > Manage Account in the app, which opens our website. There you can view billing details and manage your account."
                 )
 
                 faqItem(
@@ -567,7 +567,7 @@ struct ChatSupportView: View {
         let lowered = input.lowercased()
 
         if lowered.contains("subscription") || lowered.contains("billing") || lowered.contains("payment") {
-            return "For subscription and billing questions, go to Account > Subscription. If you're having payment issues, please submit a claim and our billing team will assist you within 24 hours."
+            return "For account and billing questions, manage your account from our website (Account > Manage Account in the app). If you're having issues, please submit a claim and our team will assist you within 24 hours."
         } else if lowered.contains("teacher") || lowered.contains("add") {
             return "To add teachers, share your 6-digit school code with them. They can enter it in the 'Switch Schools' section to join your school."
         } else if lowered.contains("password") || lowered.contains("login") {

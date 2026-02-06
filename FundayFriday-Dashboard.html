@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EZTeach — Funday Friday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: #12121a;
+      --border: #2a2a3a;
+      --text: #f0f0f5;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --success: #22c55e;
+      --gold: #fbbf24;
+      --party: linear-gradient(135deg, #ec4899, #8b5cf6);
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; overflow-x: hidden; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    
+    .header {
+      text-align: center; padding: 28px 0;
+      background: linear-gradient(180deg, rgba(99,102,241,0.15) 0%, transparent 100%);
+      border-radius: 20px; margin-bottom: 28px;
+    }
+    .header h1 { font-size: 2.25rem; margin: 0; background: var(--party); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .header p { font-size: 1rem; margin: 6px 0 0; color: #888; }
+    
+    .wheel-section {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 32px; text-align: center; margin-bottom: 28px;
+    }
+    .wheel-title { font-size: 1.15rem; margin-bottom: 20px; }
+    .spin-btn {
+      padding: 18px 48px; font-size: 1.25rem; font-weight: 800; background: var(--party); color: white; border: none; border-radius: 14px;
+      cursor: pointer; box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5); transition: all 0.3s;
+      animation: btnPulse 2s ease-in-out infinite;
+    }
+    .spin-btn:hover { transform: scale(1.08); box-shadow: 0 12px 40px rgba(139, 92, 246, 0.6); }
+    .spin-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; animation: none; }
+    @keyframes btnPulse {
+      0%, 100% { box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5); }
+      50% { box-shadow: 0 12px 48px rgba(236, 72, 153, 0.6); }
+    }
+    
+    .wheel-wrapper { position: relative; display: inline-block; margin: 24px 0; }
+    .wheel-pointer {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent;
+      border-top: 28px solid var(--gold); z-index: 10;
+      filter: drop-shadow(0 2px 8px rgba(251, 191, 36, 0.6));
+      animation: pointerGlow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes pointerGlow {
+      from { filter: drop-shadow(0 2px 8px rgba(251, 191, 36, 0.6)); }
+      to { filter: drop-shadow(0 4px 16px rgba(251, 191, 36, 0.9)); }
+    }
+    .wheel-outer {
+      width: 380px; height: 380px; border-radius: 50%; position: relative; overflow: hidden;
+      transition: transform 4.2s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+      box-shadow: 0 0 0 6px var(--gold), 0 8px 40px rgba(0,0,0,0.5), inset 0 0 60px rgba(99,102,241,0.2);
+    }
+    .wheel-outer.spinning { pointer-events: none; }
+    .wheel-segments { width: 100%; height: 100%; position: relative; }
+    .wheel-center {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 100px; height: 100px; border-radius: 50%; background: var(--bg); border: 4px solid var(--gold);
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; color: var(--gold); z-index: 5;
+      box-shadow: inset 0 0 20px rgba(251,191,36,0.2);
+    }
+    
+    .results-section {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 24px;
+    }
+    .results-section h2 { font-size: 1.4rem; margin: 0 0 20px; text-align: center; }
+    .winner-badge {
+      text-align: center; padding: 24px; margin-bottom: 28px;
+      background: linear-gradient(135deg, rgba(236,72,153,0.25), rgba(139,92,246,0.25));
+      border: 3px solid #ec4899; border-radius: 20px;
+      animation: winnerPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      box-shadow: 0 0 40px rgba(236,72,153,0.3);
+    }
+    @keyframes winnerPop {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .winner-badge .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.2em; color: #888; margin-bottom: 6px; }
+    .winner-badge .name { font-size: 1.75rem; font-weight: 800; background: var(--party); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .winner-badge .city { font-size: 1rem; color: #888; margin-top: 6px; }
+    
+    .pick-instruction { font-size: 1rem; color: #aaa; margin-bottom: 20px; text-align: center; }
+    
+    .picks-majestic {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 700px; margin: 0 auto 24px;
+    }
+    .pick-card {
+      padding: 20px; border-radius: 16px; text-align: center; cursor: pointer;
+      background: linear-gradient(145deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
+      border: 2px solid rgba(99,102,241,0.4);
+      position: relative; overflow: hidden;
+      animation: pickMe 3s ease-in-out infinite;
+      transition: all 0.3s;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .pick-card::before {
+      content: ''; position: absolute; inset: -2px; border-radius: 18px;
+      background: linear-gradient(45deg, transparent, rgba(251,191,36,0.2), transparent, rgba(236,72,153,0.2));
+      opacity: 0; animation: shimmer 2s ease-in-out infinite;
+    }
+    .pick-card:nth-child(1) { animation-delay: 0s; }
+    .pick-card:nth-child(2) { animation-delay: 0.2s; }
+    .pick-card:nth-child(3) { animation-delay: 0.4s; }
+    .pick-card:nth-child(4) { animation-delay: 0.6s; }
+    .pick-card:nth-child(5) { animation-delay: 0.8s; }
+    .pick-card:nth-child(6) { animation-delay: 1s; }
+    .pick-card:hover {
+      transform: translateY(-12px) scale(1.08); border-color: var(--gold);
+      box-shadow: 0 0 50px rgba(251,191,36,0.6);
+    }
+    .pick-card .num { font-size: 0.7rem; color: #888; margin-bottom: 6px; }
+    .pick-card .name { font-size: 0.95rem; font-weight: 700; }
+    @keyframes pickMe {
+      0%, 100% { transform: translateY(0) scale(1) rotate(0deg); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+      25% { transform: translateY(-6px) scale(1.03) rotate(1deg); box-shadow: 0 14px 44px rgba(99,102,241,0.35); }
+      50% { transform: translateY(-10px) scale(1.05) rotate(-1deg); box-shadow: 0 20px 56px rgba(139,92,246,0.45); }
+      75% { transform: translateY(-5px) scale(1.02) rotate(0.5deg); box-shadow: 0 12px 40px rgba(236,72,153,0.3); }
+    }
+    @keyframes shimmer {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 0.5; }
+    }
+    
+    .chosen-card {
+      border-color: var(--gold) !important;
+      box-shadow: 0 0 50px rgba(251,191,36,0.6) !important;
+      animation: chosenPulse 1s ease-in-out infinite !important;
+    }
+    @keyframes chosenPulse {
+      0%, 100% { box-shadow: 0 0 50px rgba(251,191,36,0.6); }
+      50% { box-shadow: 0 0 70px rgba(251,191,36,0.9); }
+    }
+    
+    .history-section { margin-top: 24px; }
+    .history-section h3 { font-size: 1rem; margin-bottom: 10px; }
+    .history-list { max-height: 160px; overflow-y: auto; }
+    .history-item { padding: 8px 12px; background: var(--bg); border-radius: 8px; margin-bottom: 6px; font-size: 0.85rem; }
+    
+    #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }
+    .firework-burst { position: fixed; pointer-events: none; z-index: 9998; }
+  </style>
+</head>
+<body>
+  <div id="confetti-canvas"></div>
+  
+  <div class="container">
+    <div class="header">
+      <h1>🎉 Funday Friday</h1>
+      <p>Press SPIN — watch the wheel, then choose one of 6 prizes for the winning school.</p>
+    </div>
+
+    <div class="wheel-section">
+      <div class="wheel-title" id="wheel-title">Loading schools...</div>
+      <div class="wheel-wrapper">
+        <div class="wheel-pointer"></div>
+        <div class="wheel-outer" id="wheel">
+          <div class="wheel-segments" id="wheel-segments"></div>
+          <div class="wheel-center">SPIN</div>
+        </div>
+      </div>
+      <button class="spin-btn" id="spin-btn" onclick="doSpin()" disabled>🎲 SPIN</button>
+    </div>
+
+    <div class="results-section" id="results-section" style="display: none;">
+      <h2>🏆 Winner</h2>
+      <div class="winner-badge" id="winner-badge"></div>
+      <p class="pick-instruction" id="pick-instruction">Choose one prize:</p>
+      <div class="picks-majestic" id="picks-majestic"></div>
+    </div>
+
+    <div class="history-section">
+      <h3>Previous Winners</h3>
+      <div class="history-list" id="history-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://us-central1-ezteach-cdf5c.cloudfunctions.net';
+    const KEY = new URLSearchParams(window.location.search).get('key') || '';
+    
+    const PRIZES_POOL = [
+      "Pizza Party Friday", "Ice Cream Social", "Dance Party", "Game Day", "Movie Day",
+      "Extra Recess", "Homework Pass", "Lunch with Teacher", "Line Leader for Week", "Stickers Pack",
+      "Certificate of Excellence", "Principal's High Five", "Desk Decorating Day", "Tech Time",
+      "Book from Class Library", "Sit by a Friend", "Art Supplies", "Golden Ticket", "Treasure Chest Pick",
+      "Science Experiment Day", "Craft Day", "STEM Challenge", "Field Day", "Color Wars"
+    ];
+
+    let schools = [];
+    let pickedIds = new Set();
+    let segmentDeg = 0;
+    let currentWinner = null;
+    let currentPrizes = [];
+
+    async function loadData() {
+      document.getElementById('wheel-title').textContent = 'Loading schools...';
+      try {
+        const url = `${API_BASE}/getFundayFridaySchools${KEY ? '?key=' + encodeURIComponent(KEY) : ''}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          if (res.status === 401) {
+            document.getElementById('wheel-title').innerHTML = 'Add <code>?key=YOUR_SECRET</code> to the URL.';
+          } else {
+            document.getElementById('wheel-title').textContent = 'Could not load schools.';
+          }
+          return;
+        }
+        const data = await res.json();
+        schools = data.schools || [];
+        pickedIds = new Set(data.pickedIds || []);
+        
+        const remaining = schools.filter(s => !pickedIds.has(s.id));
+        document.getElementById('wheel-title').textContent = remaining.length > 0
+          ? `Ready — ${remaining.length} schools. Start recording, then press SPIN!`
+          : 'All schools picked! Reset fundayFridayPicks in Firestore to start over.';
+        document.getElementById('spin-btn').disabled = remaining.length === 0;
+        
+        buildWheel(remaining);
+        if (data.history && data.history.length) {
+          document.getElementById('history-list').innerHTML = data.history.slice(0, 15).map(h =>
+            `<div class="history-item"><strong>${h.date}</strong> — ${h.schoolName}${h.schoolCity ? ', ' + h.schoolCity : ''}</div>`
+          ).join('');
+        } else {
+          document.getElementById('history-list').innerHTML = '<div class="history-item">Winners appear here.</div>';
+        }
+      } catch (e) {
+        console.error(e);
+        document.getElementById('wheel-title').textContent = 'Failed to load. Use a local server.';
+      }
+    }
+
+    function buildWheel(list) {
+      const container = document.getElementById('wheel-segments');
+      if (!list.length) {
+        container.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#888;">No schools</div>';
+        return;
+      }
+      segmentDeg = 360 / list.length;
+      const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#6366f1', '#8b5cf6', '#ec4899'];
+      let gradientStops = '';
+      list.forEach((_, i) => {
+        const start = (i / list.length) * 360;
+        const end = ((i + 1) / list.length) * 360;
+        gradientStops += `${colors[i % colors.length]} ${start}deg ${end}deg, `;
+      });
+      container.innerHTML = '';
+      container.style.background = `conic-gradient(${gradientStops.slice(0, -2)})`;
+      list.forEach((s, i) => {
+        const el = document.createElement('div');
+        el.style.cssText = `position:absolute;left:50%;top:50%;transform-origin:0 0;width:50%;height:50%;transform:translate(0,-100%) rotate(${(i + 0.5) * segmentDeg}deg);display:flex;align-items:flex-start;justify-content:center;padding-top:8px;`;
+        el.innerHTML = `<span style="font-size:10px;font-weight:600;color:#fff;text-shadow:0 1px 2px #000;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(s.name || '').slice(0, 12)}</span>`;
+        container.appendChild(el);
+      });
+    }
+
+    function doSpin() {
+      const remaining = schools.filter(s => !pickedIds.has(s.id));
+      if (remaining.length === 0) return;
+
+      document.getElementById('results-section').style.display = 'none';
+      const btn = document.getElementById('spin-btn');
+      btn.disabled = true;
+
+      const winIndex = Math.floor(Math.random() * remaining.length);
+      const winner = remaining[winIndex];
+      currentPrizes = [...PRIZES_POOL].sort(() => Math.random() - 0.5).slice(0, 6);
+
+      const sliceDeg = 360 / remaining.length;
+      const targetDeg = 360 * 7 + (270 - (winIndex + 0.5) * sliceDeg);
+      const wheel = document.getElementById('wheel');
+      wheel.classList.add('spinning');
+      wheel.style.transform = `rotate(${targetDeg}deg)`;
+
+      setTimeout(() => {
+        confettiBurst();
+        fireworkBurst();
+        currentWinner = winner;
+        showWinnerAndPrizes(winner);
+        btn.disabled = false;
+        wheel.classList.remove('spinning');
+        document.getElementById('wheel-title').textContent = 'Choose one prize for the winner!';
+      }, 4500);
+    }
+
+    function showWinnerAndPrizes(winner) {
+      const section = document.getElementById('results-section');
+      document.getElementById('winner-badge').innerHTML = `
+        <div class="label">Winner</div>
+        <div class="name">${winner.name || 'School'}</div>
+        ${winner.city ? `<div class="city">${winner.city}</div>` : ''}
+      `;
+      document.getElementById('pick-instruction').textContent = 'Choose one prize:';
+      const container = document.getElementById('picks-majestic');
+      container.innerHTML = currentPrizes.map((p, i) => `
+        <div class="pick-card" data-idx="${i}" onclick="choosePrize(this)">
+          <div class="num">Pick ${i + 1}</div>
+          <div class="name">${(p || 'Prize').replace(/</g, '&lt;')}</div>
+        </div>
+      `).join('');
+      section.style.display = 'block';
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function choosePrize(el) {
+      if (!currentWinner) return;
+      const idx = parseInt(el.dataset.idx, 10);
+      const prize = currentPrizes[idx] || 'Prize';
+      document.querySelectorAll('.pick-card').forEach(c => {
+        c.onclick = null;
+        c.style.cursor = 'default';
+        c.style.pointerEvents = 'none';
+        if (c === el) c.classList.add('chosen-card');
+        else c.style.opacity = '0.4';
+      });
+      el.classList.add('chosen-card');
+      document.getElementById('pick-instruction').textContent = `Selected: ${prize}`;
+      
+      try {
+        await fetch(`${API_BASE}/saveFundayFridayPick${KEY ? '?key=' + encodeURIComponent(KEY) : ''}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            schoolId: currentWinner.id,
+            schoolName: currentWinner.name,
+            schoolCity: currentWinner.city || '',
+            prizes: currentPrizes,
+            chosenPrize: prize
+          })
+        });
+      } catch (_) {}
+      
+      pickedIds.add(currentWinner.id);
+      const winnerName = currentWinner.name;
+      const winnerCity = currentWinner.city || '';
+      currentWinner = null;
+      
+      const remaining = schools.filter(s => !pickedIds.has(s.id));
+      document.getElementById('spin-btn').disabled = remaining.length === 0;
+      document.getElementById('wheel-title').textContent = remaining.length > 0 ? `${remaining.length} schools left — spin again!` : 'All picked!';
+      
+      const histList = document.getElementById('history-list');
+      const newItem = `<div class="history-item"><strong>${new Date().toLocaleDateString()}</strong> — ${winnerName}${winnerCity ? ', ' + winnerCity : ''} (${prize})</div>`;
+      if (histList.innerHTML.includes('Winners appear')) histList.innerHTML = newItem;
+      else histList.insertAdjacentHTML('afterbegin', newItem);
+    }
+
+    function confettiBurst() {
+      const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#fbbf24', '#22c55e'];
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const pieces = [];
+      for (let i = 0; i < 180; i++) {
+        pieces.push({
+          x: canvas.width / 2, y: canvas.height / 2,
+          vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14 - 6,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 8 + 4, angle: Math.random() * 360
+        });
+      }
+      let frame = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.angle += 5;
+          ctx.save();
+          ctx.translate(p.x, p.y); ctx.rotate(p.angle * Math.PI / 180);
+          ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        });
+        frame++;
+        if (frame < 120) requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    function fireworkBurst() {
+      for (let i = 0; i < 4; i++) {
+        setTimeout(() => {
+          const fw = document.createElement('div');
+          fw.className = 'firework-burst';
+          fw.innerHTML = '✨';
+          fw.style.cssText = `left: ${25 + i * 18}%; top: 35%; font-size: 72px; position: fixed; pointer-events: none; animation: fwPop 1.8s ease-out forwards;`;
+          document.body.appendChild(fw);
+          setTimeout(() => fw.remove(), 1800);
+        }, i * 150);
+      }
+      const style = document.createElement('style');
+      style.textContent = '@keyframes fwPop { 0%{transform:scale(0);opacity:1} 50%{transform:scale(1.5);opacity:0.9} 100%{transform:scale(2.5);opacity:0} }';
+      document.head.appendChild(style);
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

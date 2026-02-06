@@ -117,7 +117,7 @@ struct CalendarBottomSheetView: View {
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
 
-                    if event.teachersOnly, viewerRole == "school" || viewerRole == "teacher" {
+                    if event.teachersOnly, viewerRole == "school" || viewerRole == "teacher" || viewerRole == "librarian" {
                         Image(systemName: "eye.slash.fill")
                             .font(.caption2)
                             .foregroundColor(.orange)

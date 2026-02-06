@@ -111,19 +111,23 @@ struct AttendanceView: View {
     // MARK: - Student Row
     private func studentAttendanceRow(_ student: Student) -> some View {
         HStack(spacing: 16) {
-            // Student avatar
-            Circle()
-                .fill(EZTeachColors.accent.opacity(0.1))
-                .frame(width: 44, height: 44)
-                .overlay(
-                    Text(student.name.prefix(1).uppercased())
-                        .font(.headline)
-                        .foregroundColor(EZTeachColors.accent)
-                )
-            
-            // Name
-            Text(student.name)
-                .font(.subheadline.weight(.medium))
+            NavigationLink {
+                StudentProfileView(student: student)
+            } label: {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(EZTeachColors.accent.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Text(student.name.prefix(1).uppercased())
+                                .font(.headline)
+                                .foregroundColor(EZTeachColors.accent)
+                        )
+                    Text(student.name)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.primary)
+                }
+            }
             
             Spacer()
             

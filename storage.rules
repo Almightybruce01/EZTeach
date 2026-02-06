@@ -1,8 +1,8 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // School documents — scoped by schoolId. Validate size (50MB).
-    // For production, consider uploads via Cloud Functions to enforce school access.
+    // School documents — authenticated users only. Size limit 50MB.
+    // NOTE: App validates school access; consider Cloud Function upload for strict per-school isolation.
     match /documents/{schoolId}/{fileName} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
@@ -10,12 +10,24 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
 
-    // School logos — public read; authenticated write.
+    // Teacher profile photos — authenticated users can read; teacher can write own.
+    match /teacherPhotos/{teacherId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null
+        && request.auth.uid == teacherId
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // School logos — public read; only school owner can write/delete (prevents cross-school tampering).
     match /schoolLogos/{schoolId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024;
-      allow delete: if request.auth != null;
+        && request.resource.size < 5 * 1024 * 1024
+        && firestore.exists(/databases/(default)/documents/schools/$(schoolId))
+        && firestore.get(/databases/(default)/documents/schools/$(schoolId)).data.ownerUid == request.auth.uid;
+      allow delete: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/schools/$(schoolId))
+        && firestore.get(/databases/(default)/documents/schools/$(schoolId)).data.ownerUid == request.auth.uid;
     }
   }
 }

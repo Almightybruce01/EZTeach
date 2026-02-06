@@ -475,6 +475,13 @@ struct VideoMeeting: Identifiable, Codable {
     let isRecorded: Bool
     let recordingUrl: String?
     let status: MeetingStatus
+    let meetingType: MeetingType  // group or one-on-one
+    let hasPresentationMode: Bool
+
+    enum MeetingType: String, Codable {
+        case group = "group"
+        case oneOnOne = "one_on_one"
+    }
     
     enum MeetingStatus: String, Codable {
         case scheduled = "scheduled"
@@ -485,6 +492,8 @@ struct VideoMeeting: Identifiable, Codable {
     
     static func fromDocument(_ doc: DocumentSnapshot) -> VideoMeeting? {
         guard let data = doc.data() else { return nil }
+        let typeRaw = data["meetingType"] as? String ?? "group"
+        let meetingType = MeetingType(rawValue: typeRaw) ?? .group
         return VideoMeeting(
             id: doc.documentID,
             schoolId: data["schoolId"] as? String ?? "",
@@ -497,7 +506,9 @@ struct VideoMeeting: Identifiable, Codable {
             participantIds: data["participantIds"] as? [String] ?? [],
             isRecorded: data["isRecorded"] as? Bool ?? false,
             recordingUrl: data["recordingUrl"] as? String,
-            status: MeetingStatus(rawValue: data["status"] as? String ?? "") ?? .scheduled
+            status: MeetingStatus(rawValue: data["status"] as? String ?? "") ?? .scheduled,
+            meetingType: meetingType,
+            hasPresentationMode: data["hasPresentationMode"] as? Bool ?? true
         )
     }
 }

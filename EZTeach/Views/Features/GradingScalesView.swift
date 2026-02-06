@@ -272,7 +272,8 @@ struct CreateGradingScaleView: View {
                 }
                 
                 Section("Grade Ranges") {
-                    ForEach(ranges.indices, id: \.self) { index in
+                    ForEach(0..<ranges.count, id: \.self) { index in
+                        if index < ranges.count {
                         HStack {
                             TextField("Grade", text: $ranges[index].letter)
                                 .frame(width: 50)
@@ -290,6 +291,7 @@ struct CreateGradingScaleView: View {
                             TextField("GPA", text: $ranges[index].gpa)
                                 .keyboardType(.decimalPad)
                                 .frame(width: 50)
+                        }
                         }
                     }
                     
