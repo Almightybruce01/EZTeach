@@ -149,7 +149,7 @@ struct SubRankingView: View {
         var cityMap: [String: [SubRankingItem]] = [:]
 
         for (subId, subRevs) in grouped {
-            let first = subRevs.first!
+            guard let first = subRevs.first else { continue }
             var breakdown: [String: Double] = [:]
             var compl = 0, comp = 0
             for r in subRevs {

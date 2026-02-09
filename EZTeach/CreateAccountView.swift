@@ -16,6 +16,8 @@ enum UserRole: String, CaseIterable {
     case assistantPrincipal = "Assistant Principal"
     case assistantTeacher = "Assistant Teacher"
     case secretary = "Secretary"
+    case librarian = "Librarian"
+    case janitor = "Janitor"
     case sub = "Sub"
     case parent = "Parent"
     
@@ -26,6 +28,8 @@ enum UserRole: String, CaseIterable {
         case .teacher: return "Access classes, attendance, and sub plans"
         case .principal, .assistantPrincipal: return "School leadership—no grade assignment required"
         case .assistantTeacher, .secretary: return "Support staff—no grade assignment required"
+        case .librarian: return "Manage school library and book checkouts"
+        case .janitor: return "School facilities staff"
         case .sub: return "View assignments and accept sub requests"
         case .parent: return "View your child's grades and school info"
         }
@@ -34,7 +38,7 @@ enum UserRole: String, CaseIterable {
     /// Roles that create teacher-level accounts (stored as "teacher" in Firestore) without requiring grade
     var isStaffNoGradeRequired: Bool {
         switch self {
-        case .principal, .assistantPrincipal, .assistantTeacher, .secretary: return true
+        case .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor: return true
         default: return false
         }
     }
@@ -42,7 +46,7 @@ enum UserRole: String, CaseIterable {
     /// Firestore role value
     var firestoreRole: String {
         switch self {
-        case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary: return "teacher"
+        case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor: return "teacher"
         case .sub: return "sub"
         default: return rawValue.lowercased()
         }
@@ -55,6 +59,8 @@ enum UserRole: String, CaseIterable {
         case .assistantPrincipal: return "assistant_principal"
         case .assistantTeacher: return "assistant_teacher"
         case .secretary: return "secretary"
+        case .librarian: return "librarian"
+        case .janitor: return "janitor"
         default: return nil
         }
     }
@@ -83,6 +89,8 @@ struct CreateAccountView: View {
 
     @State private var gradeFrom = 0
     @State private var gradeTo = 13
+    @State private var approximateStudents = ""
+    @State private var optionalDistrictCode = ""
     
     // District
     @State private var districtName = ""
@@ -114,7 +122,7 @@ struct CreateAccountView: View {
                     schoolFields
                 case .district:
                     districtFields
-                case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .sub:
+                case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor, .sub:
                     personFields
                 case .parent:
                     parentFields
@@ -152,7 +160,7 @@ struct CreateAccountView: View {
     
     // MARK: - Role Selector
     private static let mainRoles: [UserRole] = [.parent, .teacher, .sub]
-    private static let adminRoles: [UserRole] = [.school, .district, .principal, .assistantPrincipal, .assistantTeacher, .secretary]
+    private static let adminRoles: [UserRole] = [.school, .district, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor]
 
     private var roleSelector: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -282,6 +290,8 @@ struct CreateAccountView: View {
         case .assistantPrincipal: return "person.crop.circle.badge.checkmark"
         case .assistantTeacher: return "person.2.fill"
         case .secretary: return "person.text.rectangle.fill"
+        case .librarian: return "books.vertical.fill"
+        case .janitor: return "wrench.and.screwdriver.fill"
         case .sub: return "person.badge.clock.fill"
         case .parent: return "figure.2.and.child.holdinghands"
         }
@@ -343,6 +353,27 @@ struct CreateAccountView: View {
                     }
                 }
             }
+
+            formSection(title: "Approximate Number of Students") {
+                formField(icon: "person.3", placeholder: "e.g. 350", text: $approximateStudents)
+                    .keyboardType(.numberPad)
+                    .onChange(of: approximateStudents) { _, v in
+                        approximateStudents = String(v.filter { $0.isNumber })
+                    }
+
+                Text("This helps us recommend the right plan. Your billing is based on actual students you add — you can always change plans later.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            formSection(title: "District Code (Optional)") {
+                formField(icon: "building.2.crop.circle", placeholder: "Enter district code if you have one", text: $optionalDistrictCode)
+                    .textInputAutocapitalization(.characters)
+
+                Text("If your school belongs to a district, enter the district code here. The district can pay for your subscription, or you can pay independently — the subscription is only charged once.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
     
@@ -382,29 +413,15 @@ struct CreateAccountView: View {
                     .keyboardType(.phonePad)
             }
             
-            // Pricing preview
+            // Pricing note
             VStack(spacing: 12) {
-                Text("Volume Pricing")
-                    .font(.headline)
-                
-                let pricing = District.calculatePrice(schoolCount: numberOfSchools)
-                
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("$\(Int(pricing.pricePerSchool))")
-                            .font(.title.bold())
-                            .foregroundStyle(EZTeachColors.primaryGradient)
-                        Text("per school/month")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing) {
-                        Text("$\(Int(pricing.total))")
-                            .font(.title2.bold())
-                        Text("total/month")
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(EZTeachColors.accent)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("District Pricing")
+                            .font(.subheadline.bold())
+                        Text("After creating your account, you'll add each school and pick a plan tier based on school size. Same tiers as individual schools — $129–$999/mo per school.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -412,10 +429,6 @@ struct CreateAccountView: View {
                 .padding()
                 .background(EZTeachColors.secondaryBackground)
                 .cornerRadius(12)
-                
-                Text("You'll add your schools after creating your account.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
         }
     }
@@ -603,7 +616,7 @@ struct CreateAccountView: View {
             return !schoolName.isEmpty && !address.isEmpty && !city.isEmpty && !state.isEmpty && !zip.isEmpty && schoolCode.count == 6
         case .district:
             return !districtName.isEmpty && !firstName.isEmpty && !lastName.isEmpty && !districtAddress.isEmpty && !districtCity.isEmpty && !districtState.isEmpty && districtZip.count >= 5 && numberOfSchools >= 2
-        case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .sub, .parent:
+        case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor, .sub, .parent:
             return !firstName.isEmpty && !lastName.isEmpty
         }
     }
@@ -627,7 +640,9 @@ struct CreateAccountView: View {
                     zip: zip,
                     gradesFrom: gradeFrom,
                     gradesTo: gradeTo,
-                    schoolCode: schoolCode
+                    schoolCode: schoolCode,
+                    approximateStudents: Int(approximateStudents) ?? 0,
+                    districtCode: optionalDistrictCode
                 )
                 showSuccess = true
                 
@@ -647,7 +662,7 @@ struct CreateAccountView: View {
                 )
                 showSuccess = true
 
-            case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .sub:
+            case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor, .sub:
                 try await FirestoreService.shared.createStaffAccount(
                     email: email,
                     password: password,

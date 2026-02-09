@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 import AVFoundation
 import FirebaseAuth
 import FirebaseFirestore
@@ -21,12 +22,19 @@ struct VideoMeetingView: View {
     @State private var showScheduleMeeting = false
     @State private var selectedTab = 0
     @State private var listener: ListenerRegistration?
-    @State private var showInstantMeeting = false
+    @State private var showJoinByCode = false
+    @State private var joinCode = ""
+    @State private var joinError: String?
+    @State private var joinedMeeting: VideoMeeting?
 
     private let db = Firestore.firestore()
 
     private var canCreate: Bool {
         userRole != "student"
+    }
+
+    private var currentUserId: String? {
+        Auth.auth().currentUser?.uid
     }
 
     var upcomingMeetings: [VideoMeeting] {
@@ -39,19 +47,55 @@ struct VideoMeetingView: View {
             .sorted { $0.scheduledAt > $1.scheduledAt }
     }
 
+    /// The next upcoming meeting (for the hero panel)
+    var nextMeeting: VideoMeeting? {
+        upcomingMeetings.first
+    }
+
+    /// Is the current user the host of the next meeting?
+    var isHostOfNext: Bool {
+        guard let m = nextMeeting, let uid = currentUserId else { return false }
+        return m.hostId == uid
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Quick action bar
-                if canCreate {
+            ScrollView {
+                VStack(spacing: 16) {
+
+                    // MARK: - Next Meeting Panel
+                    if let next = nextMeeting {
+                        nextMeetingPanel(next)
+                            .padding(.horizontal)
+                    }
+
+                    // MARK: - Action Bar
                     HStack(spacing: 12) {
+                        if canCreate {
+                            Button {
+                                showScheduleMeeting = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "calendar.badge.plus")
+                                        .font(.headline)
+                                    Text("Schedule Meeting")
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(EZTeachColors.accentGradient)
+                                .cornerRadius(12)
+                            }
+                        }
+
                         Button {
-                            showInstantMeeting = true
+                            showJoinByCode = true
                         } label: {
                             HStack(spacing: 8) {
-                                Image(systemName: "video.fill")
+                                Image(systemName: "number")
                                     .font(.headline)
-                                Text("Start Now")
+                                Text("Join by Code")
                                     .fontWeight(.semibold)
                             }
                             .foregroundColor(.white)
@@ -60,87 +104,206 @@ struct VideoMeetingView: View {
                             .background(Color.green.gradient)
                             .cornerRadius(12)
                         }
-
-                        Button {
-                            showScheduleMeeting = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "calendar.badge.plus")
-                                    .font(.headline)
-                                Text("Schedule")
-                                    .fontWeight(.semibold)
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(EZTeachColors.accentGradient)
-                            .cornerRadius(12)
-                        }
                     }
                     .padding(.horizontal)
-                    .padding(.vertical, 12)
-                }
 
-                // Tab picker
-                Picker("", selection: $selectedTab) {
-                    Text("Upcoming").tag(0)
-                    Text("Past").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                    // Tab picker
+                    Picker("", selection: $selectedTab) {
+                        Text("Upcoming (\(upcomingMeetings.count))").tag(0)
+                        Text("Past (\(pastMeetings.count))").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
 
-                if isLoading {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                } else {
-                    let currentMeetings = selectedTab == 0 ? upcomingMeetings : pastMeetings
-
-                    if currentMeetings.isEmpty {
-                        Spacer()
-                        VStack(spacing: 16) {
-                            Image(systemName: "video.slash.fill")
-                                .font(.system(size: 50))
-                                .foregroundColor(.secondary.opacity(0.5))
-                            Text(selectedTab == 0 ? "No Upcoming Meetings" : "No Past Meetings")
-                                .font(.headline)
-                            Text("Tap \"Start Now\" for an instant meeting or \"Schedule\" to plan ahead.")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
-                        }
-                        Spacer()
+                    if isLoading {
+                        ProgressView()
+                            .padding(.top, 60)
                     } else {
-                        List {
-                            ForEach(currentMeetings) { meeting in
-                                MeetingRow(meeting: meeting, userRole: userRole, schoolId: schoolId)
+                        let currentMeetings = selectedTab == 0 ? upcomingMeetings : pastMeetings
+
+                        if currentMeetings.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "video.slash.fill")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.secondary.opacity(0.5))
+                                Text(selectedTab == 0 ? "No Upcoming Meetings" : "No Past Meetings")
+                                    .font(.headline)
+                                Text("Schedule a meeting to get started, or join one using a meeting code.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 40)
+                            }
+                            .padding(.top, 40)
+                        } else {
+                            LazyVStack(spacing: 12) {
+                                ForEach(currentMeetings) { meeting in
+                                    MeetingRow(meeting: meeting, userRole: userRole, schoolId: schoolId)
+                                        .padding(.horizontal)
+                                }
                             }
                         }
-                        .listStyle(.plain)
                     }
+
+                    Spacer(minLength: 40)
                 }
+                .padding(.top, 12)
             }
             .background(EZTeachColors.background)
             .navigationTitle("Video Meetings")
             .sheet(isPresented: $showScheduleMeeting) {
                 ScheduleMeetingView(schoolId: schoolId, userRole: userRole) { }
             }
-            .fullScreenCover(isPresented: $showInstantMeeting) {
-                InCallView(meetingTitle: "Instant Meeting", meetingCode: String(format: "%06d", Int.random(in: 100000...999999)), schoolId: schoolId)
+            .alert("Join Meeting", isPresented: $showJoinByCode) {
+                TextField("Enter 6-digit code", text: $joinCode)
+                    .keyboardType(.numberPad)
+                Button("Join") { joinByCode() }
+                Button("Cancel", role: .cancel) { joinCode = ""; joinError = nil }
+            } message: {
+                if let err = joinError {
+                    Text(err)
+                } else {
+                    Text("Enter the meeting code shared by the host.")
+                }
+            }
+            .fullScreenCover(item: $joinedMeeting) { meeting in
+                InCallView(meetingTitle: meeting.title, meetingCode: meeting.meetingCode, schoolId: schoolId)
             }
             .onAppear { startListening() }
             .onDisappear { listener?.remove() }
         }
     }
 
+    // MARK: - Next Meeting Hero Panel
+    private func nextMeetingPanel(_ meeting: VideoMeeting) -> some View {
+        VStack(spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("NEXT MEETING")
+                        .font(.caption2.bold())
+                        .foregroundColor(EZTeachColors.accent)
+
+                    Text(meeting.title)
+                        .font(.title3.bold())
+                        .lineLimit(1)
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                        Text(meeting.scheduledAt, style: .date)
+                        Text("at")
+                        Text(meeting.scheduledAt, style: .time)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+                Spacer()
+                VStack(spacing: 2) {
+                    Text("\(meeting.duration)")
+                        .font(.title2.bold().monospacedDigit())
+                    Text("min")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(EZTeachColors.accent.opacity(0.1))
+                .cornerRadius(12)
+            }
+
+            // Meeting code - always visible to host, also visible during the meeting window
+            if isHostOfNext || canJoinMeeting(meeting) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Meeting Code")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(meeting.meetingCode)
+                            .font(.title3.bold().monospaced())
+                            .foregroundColor(EZTeachColors.accent)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        UIPasteboard.general.string = meeting.meetingCode
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc")
+                            Text("Copy")
+                        }
+                        .font(.caption.bold())
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(EZTeachColors.secondaryBackground)
+                        .cornerRadius(8)
+                    }
+                }
+                .padding(12)
+                .background(EZTeachColors.accent.opacity(0.05))
+                .cornerRadius(10)
+            }
+
+            // Join button (only if within join window)
+            if canJoinMeeting(meeting) {
+                Button {
+                    joinedMeeting = meeting
+                } label: {
+                    HStack {
+                        Image(systemName: "video.fill")
+                        Text("Join Meeting Room")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 14)
+                    .background(Color.green.gradient)
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding()
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+    }
+
+    private func canJoinMeeting(_ meeting: VideoMeeting) -> Bool {
+        let minutesToStart = meeting.scheduledAt.timeIntervalSinceNow / 60
+        return (minutesToStart < 15 && meeting.status == .scheduled) || meeting.status == .inProgress
+    }
+
+    // MARK: - Join by Code
+    private func joinByCode() {
+        let code = joinCode.trimmingCharacters(in: .whitespaces)
+        guard !code.isEmpty else {
+            joinError = "Please enter a meeting code."
+            showJoinByCode = true
+            return
+        }
+
+        db.collection("videoMeetings")
+            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("meetingCode", isEqualTo: code)
+            .getDocuments { snap, _ in
+                guard let doc = snap?.documents.first,
+                      let meeting = VideoMeeting.fromDocument(doc) else {
+                    joinError = "No meeting found with code \(code). Check the code and try again."
+                    showJoinByCode = true
+                    return
+                }
+                joinCode = ""
+                joinError = nil
+                joinedMeeting = meeting
+            }
+    }
+
     private func startListening() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
 
-        // All non-student users see meetings they host OR are invited to
-        // We do two queries and merge
         let hostQuery = db.collection("videoMeetings")
             .whereField("schoolId", isEqualTo: schoolId)
             .whereField("hostId", isEqualTo: uid)
@@ -166,7 +329,6 @@ struct VideoMeetingView: View {
         }
 
         group.notify(queue: .main) {
-            // Merge and deduplicate
             var seen = Set<String>()
             var merged: [VideoMeeting] = []
             for m in hostMeetings + participantMeetings {
@@ -189,11 +351,13 @@ struct MeetingRow: View {
 
     @State private var showInCall = false
 
+    private var currentUserId: String? { Auth.auth().currentUser?.uid }
+    private var isHost: Bool { meeting.hostId == currentUserId }
+
     var isUpcoming: Bool {
         meeting.scheduledAt > Date() && meeting.status == .scheduled
     }
 
-    // Allow joining if within 15 minutes of start or if meeting is in-progress
     var canJoinNow: Bool {
         let minutesToStart = meeting.scheduledAt.timeIntervalSinceNow / 60
         return (minutesToStart < 15 && meeting.status == .scheduled) || meeting.status == .inProgress
@@ -203,8 +367,19 @@ struct MeetingRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(meeting.title)
-                        .font(.headline)
+                    HStack(spacing: 6) {
+                        Text(meeting.title)
+                            .font(.headline)
+                        if isHost {
+                            Text("HOST")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.2))
+                                .foregroundColor(.orange)
+                                .cornerRadius(4)
+                        }
+                    }
 
                     HStack(spacing: 6) {
                         Image(systemName: "calendar")
@@ -244,13 +419,36 @@ struct MeetingRow: View {
                 .cornerRadius(10)
             }
 
-            if isUpcoming || canJoinNow {
+            // Meeting code visible to host always, to participants when joinable
+            if isHost || canJoinNow {
+                HStack(spacing: 8) {
+                    Image(systemName: "number")
+                        .font(.caption)
+                        .foregroundColor(EZTeachColors.accent)
+                    Text("Code:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(meeting.meetingCode)
+                        .font(.caption.bold().monospaced())
+                        .foregroundColor(EZTeachColors.accent)
+                    Button {
+                        UIPasteboard.general.string = meeting.meetingCode
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+
+            // Join button only when within the meeting window
+            if canJoinNow {
                 Button {
                     showInCall = true
                 } label: {
                     HStack {
                         Image(systemName: "video.fill")
-                        Text(canJoinNow ? "Join Meeting Room" : "Join Meeting")
+                        Text("Join Meeting Room")
                             .fontWeight(.semibold)
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -258,28 +456,16 @@ struct MeetingRow: View {
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 14)
-                    .background(canJoinNow ? Color.green.gradient : EZTeachColors.accentGradient)
+                    .padding(.vertical, 12)
+                    .background(Color.green.gradient)
                     .cornerRadius(12)
                 }
                 .buttonStyle(.plain)
-
-                if !meeting.meetingCode.isEmpty {
-                    HStack {
-                        Text("Code: \(meeting.meetingCode)")
-                            .font(.caption.monospaced())
-                        Button {
-                            UIPasteboard.general.string = meeting.meetingCode
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .font(.caption)
-                        }
-                    }
-                    .foregroundColor(.secondary)
-                }
             }
         }
-        .padding(.vertical, 8)
+        .padding()
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(14)
         .fullScreenCover(isPresented: $showInCall) {
             InCallView(meetingTitle: meeting.title, meetingCode: meeting.meetingCode, schoolId: schoolId)
         }

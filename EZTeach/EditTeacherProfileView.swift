@@ -32,6 +32,7 @@ struct EditTeacherProfileView: View {
     @State private var email: String
     @State private var photoUrl: String
     @State private var selectedGrade: Int
+    @State private var selectedGrades: Set<Int>
     @State private var className: String
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showCamera = false
@@ -61,6 +62,7 @@ struct EditTeacherProfileView: View {
         _email = State(initialValue: currentEmail)
         _photoUrl = State(initialValue: currentPhotoUrl ?? "")
         _selectedGrade = State(initialValue: currentGrade)
+        _selectedGrades = State(initialValue: currentGrade >= 0 ? Set([currentGrade]) : Set())
         _className = State(initialValue: currentClassName)
     }
 
@@ -108,7 +110,8 @@ struct EditTeacherProfileView: View {
 
                 // MARK: - Grade & Classroom (Required)
                 Section {
-                    Picker("Grade Level", selection: $selectedGrade) {
+                    // Primary grade
+                    Picker("Primary Grade", selection: $selectedGrade) {
                         Text("Select a grade…").tag(-1)
                         ForEach(GradeUtils.allGrades, id: \.self) { grade in
                             Text(GradeUtils.label(grade)).tag(grade)
@@ -116,19 +119,54 @@ struct EditTeacherProfileView: View {
                     }
                     .onChange(of: selectedGrade) { _, _ in
                         gradeError = false
+                        // Auto-add to selected grades
+                        if selectedGrade >= 0 && !selectedGrades.contains(selectedGrade) {
+                            selectedGrades.insert(selectedGrade)
+                        }
                     }
 
                     if gradeError {
-                        Text("Please select a grade level.")
+                        Text("Please select at least one grade level.")
                             .font(.caption)
                             .foregroundColor(.red)
+                    }
+
+                    // Additional grades
+                    DisclosureGroup("Additional Grades") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 70))], spacing: 8) {
+                            ForEach(GradeUtils.allGrades, id: \.self) { grade in
+                                Button {
+                                    if selectedGrades.contains(grade) {
+                                        // Don't remove the primary grade
+                                        if grade != selectedGrade {
+                                            selectedGrades.remove(grade)
+                                        }
+                                    } else {
+                                        selectedGrades.insert(grade)
+                                    }
+                                } label: {
+                                    Text(GradeUtils.label(grade))
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .frame(maxWidth: .infinity)
+                                        .background(
+                                            selectedGrades.contains(grade)
+                                            ? AnyShapeStyle(EZTeachColors.accentGradient)
+                                            : AnyShapeStyle(EZTeachColors.secondaryBackground)
+                                        )
+                                        .foregroundColor(selectedGrades.contains(grade) ? .white : .primary)
+                                        .cornerRadius(8)
+                                }
+                            }
+                        }
                     }
 
                     TextField("Classroom Name (e.g. Room 204)", text: $className)
                 } header: {
                     Text("Grade & Classroom")
                 } footer: {
-                    Text("Your grade level determines which classroom you manage. Changing your grade will move your classroom to the new grade.")
+                    Text("Select all grades you teach. Your primary grade determines your main classroom. You can teach multiple grades.")
                 }
 
                 Section("About Me") {
@@ -222,10 +260,14 @@ struct EditTeacherProfileView: View {
     }
 
     private func save() {
-        // Validate grade is selected
-        if selectedGrade < 0 {
+        // Validate at least one grade is selected
+        if selectedGrade < 0 && selectedGrades.isEmpty {
             gradeError = true
             return
+        }
+        // If no primary but have grades, use first
+        if selectedGrade < 0, let first = selectedGrades.sorted().first {
+            selectedGrade = first
         }
 
         isSaving = true
@@ -236,7 +278,7 @@ struct EditTeacherProfileView: View {
             "officeHours": officeHours.trimmingCharacters(in: .whitespacesAndNewlines),
             "email": email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             "grade": selectedGrade,
-            "grades": [selectedGrade],
+            "grades": Array(selectedGrades).sorted(),
             "className": className.trimmingCharacters(in: .whitespacesAndNewlines)
         ]
         if !photoUrl.isEmpty {

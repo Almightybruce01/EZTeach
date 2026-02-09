@@ -667,7 +667,7 @@ struct TalkerBoardView: View {
             schoolId: schoolId,
             studentId: studentId,
             studentName: studentName,
-            name: studentName != nil ? "\(studentName!)'s Talker" : "Class Talker",
+            name: studentName.map { "\($0)'s Talker" } ?? "Class Talker",
             cards: defaultCards,
             gridColumns: 4,
             createdBy: Auth.auth().currentUser?.uid ?? "",

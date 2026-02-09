@@ -27,7 +27,7 @@ struct StudentsListView: View {
     @State private var schoolIds: [String] = []
     @State private var selectedSchoolId = ""
     @State private var schoolNames: [String: String] = [:]
-    @State private var selectedTab: StudentTab = .myStudents
+    @State private var selectedTab: StudentTab = .allStudents
     @State private var selectedGradeFilter: Int = -99  // -99 means "All Grades"
     @State private var isLoading = true
     @State private var myClassNames: [String: String] = [:]   // studentId -> class name

@@ -52,14 +52,26 @@ const STRIPE_PRICES = {
   ENT: { productId: 'prod_TwHgk848BL4WH7', monthlyPriceId: 'price_1SyP7LFOg1Vq3X9H3LUnz5e5', yearlyPriceId: 'price_1SyP7MFOg1Vq3X9Hu9a3GIg0', monthlyAmount: 99900, yearlyAmount: 999000, cap: 7500, label: 'Enterprise — 4,501–7,500 Students' },
 };
 
-const DISTRICT_PRICES = {
-  perSchool:     { productId: 'prod_TwHg0GpI7gU7vH', priceId: 'price_1SyP7MFOg1Vq3X9HcjTuL6X8' },
-  district_3k:   { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9H15EcKfBL', perStudent: 12 },
-  district_7k:   { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HmqKmc1QC', perStudent: 11 },
-  district_15k:  { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HBcSqVNxo', perStudent: 10 },
-  district_30k:  { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HGf6gqRDq', perStudent: 9  },
-  district_60k:  { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HELvYfYlG', perStudent: 8  },
+// Per-student OVERAGE pricing — applies when a school/district exceeds the
+// max tier cap (ENT = 7,500 students). Rate depends on total enrollment.
+const OVERAGE_PRICES = {
+  tier_7500:  { priceId: 'price_1SyP7NFOg1Vq3X9H15EcKfBL', perStudent: 12 },  // 7,501–15,000
+  tier_15k:   { priceId: 'price_1SyP7NFOg1Vq3X9HmqKmc1QC', perStudent: 11 },  // 15,001–30,000
+  tier_30k:   { priceId: 'price_1SyP7NFOg1Vq3X9HBcSqVNxo', perStudent: 10 },  // 30,001–60,000
+  tier_60k:   { priceId: 'price_1SyP7NFOg1Vq3X9HGf6gqRDq', perStudent: 9  },  // 60,001–100,000
+  tier_100k:  { priceId: 'price_1SyP7NFOg1Vq3X9HELvYfYlG', perStudent: 8  },  // 100,000+
 };
+
+function getOveragePriceId(totalStudents) {
+  if (totalStudents > 100000) return OVERAGE_PRICES.tier_100k;
+  if (totalStudents > 60000)  return OVERAGE_PRICES.tier_60k;
+  if (totalStudents > 30000)  return OVERAGE_PRICES.tier_30k;
+  if (totalStudents > 15000)  return OVERAGE_PRICES.tier_15k;
+  return OVERAGE_PRICES.tier_7500;
+}
+
+// District pricing: districts pick a school tier (S/M1/M2/L/XL/ENT) per school.
+// If total students exceed 7,500 (ENT cap), overage per-student pricing applies.
 
 // =========================================================
 // SUBSCRIPTION MANAGEMENT
@@ -99,6 +111,23 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
     // Look up the school's current tier
     const schoolDoc = await db.collection('schools').doc(schoolId).get();
     const schoolData = schoolDoc.exists ? schoolDoc.data() : {};
+
+    // Prevent double-charging: if district already covers this school
+    if (schoolData.subscriptionActive === true && schoolData.districtCovered === true) {
+      throw new functions.https.HttpsError(
+        'already-exists',
+        'This school is already covered by a district subscription. No additional payment is needed.'
+      );
+    }
+
+    // Prevent double-charging: if school already has an active subscription
+    if (schoolData.subscriptionActive === true) {
+      throw new functions.https.HttpsError(
+        'already-exists',
+        'This school already has an active subscription.'
+      );
+    }
+
     const planTier = schoolData.planTier || 'S';
     const tierInfo = STRIPE_PRICES[planTier] || STRIPE_PRICES['S'];
 
@@ -156,6 +185,105 @@ exports.setupPromoCodes = functions.runWith(runtimeOpts).https.onCall(async (dat
   await col.doc('EZT6X7K2M9QPN4LR').set({ isActive: true, yearlyOnly: true, discountPercent: 1, description: '100% off yearly' });
   await col.doc('EZT4Y9N2QR7LKP3M').set({ isActive: true, yearlyOnly: true, discountPercent: 0.25, description: '25% off yearly' });
   return { success: true, message: 'Promo codes created.' };
+});
+
+/**
+ * Create Stripe discount coupons and promotion codes.
+ * Creates 4 codes for monthly AND yearly, 25% and 100%:
+ *
+ *   EZT-M25-7KP9X4  → 25% off monthly (forever)
+ *   EZT-Y25-3NQ8W2  → 25% off yearly  (forever)
+ *   EZT-M100-R5J6T8 → 100% off monthly (forever)
+ *   EZT-Y100-V2L4M9 → 100% off yearly  (forever)
+ *
+ * Codes are complex to prevent guessing. Restricted to admin UID.
+ * Deletes any old codes named "EZTeach*" first.
+ */
+exports.setupStripeCoupons = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
+  }
+  const adminUid = functions.config().app?.admin_uid;
+  if (adminUid && context.auth.uid !== adminUid) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const results = [];
+
+  try {
+    // 1. Delete old promotion codes (deactivate them)
+    const oldCodes = ['EZTEACH25', 'EZTEACHFREE'];
+    for (const code of oldCodes) {
+      try {
+        const existing = await stripe.promotionCodes.list({ code, limit: 1 });
+        for (const pc of existing.data) {
+          await stripe.promotionCodes.update(pc.id, { active: false });
+          console.log('Deactivated old promo code:', code);
+        }
+      } catch (_) { /* ignore if not found */ }
+    }
+
+    // 2. Create 25% off monthly coupon
+    const coupon25m = await stripe.coupons.create({
+      percent_off: 25,
+      duration: 'forever',
+      name: 'EZTeach 25% Off — Monthly',
+    });
+    const promo25m = await stripe.promotionCodes.create({
+      coupon: coupon25m.id,
+      code: 'EZT-M25-7KP9X4',
+      active: true,
+      max_redemptions: 50,
+    });
+    results.push({ code: 'EZT-M25-7KP9X4', type: '25% monthly', promoId: promo25m.id });
+
+    // 3. Create 25% off yearly coupon
+    const coupon25y = await stripe.coupons.create({
+      percent_off: 25,
+      duration: 'forever',
+      name: 'EZTeach 25% Off — Yearly',
+    });
+    const promo25y = await stripe.promotionCodes.create({
+      coupon: coupon25y.id,
+      code: 'EZT-Y25-3NQ8W2',
+      active: true,
+      max_redemptions: 50,
+    });
+    results.push({ code: 'EZT-Y25-3NQ8W2', type: '25% yearly', promoId: promo25y.id });
+
+    // 4. Create 100% off monthly coupon
+    const coupon100m = await stripe.coupons.create({
+      percent_off: 100,
+      duration: 'forever',
+      name: 'EZTeach 100% Off — Monthly (Complimentary)',
+    });
+    const promo100m = await stripe.promotionCodes.create({
+      coupon: coupon100m.id,
+      code: 'EZT-M100-R5J6T8',
+      active: true,
+      max_redemptions: 10,
+    });
+    results.push({ code: 'EZT-M100-R5J6T8', type: '100% monthly', promoId: promo100m.id });
+
+    // 5. Create 100% off yearly coupon
+    const coupon100y = await stripe.coupons.create({
+      percent_off: 100,
+      duration: 'forever',
+      name: 'EZTeach 100% Off — Yearly (Complimentary)',
+    });
+    const promo100y = await stripe.promotionCodes.create({
+      coupon: coupon100y.id,
+      code: 'EZT-Y100-V2L4M9',
+      active: true,
+      max_redemptions: 10,
+    });
+    results.push({ code: 'EZT-Y100-V2L4M9', type: '100% yearly', promoId: promo100y.id });
+
+    return { success: true, codes: results };
+  } catch (error) {
+    console.error('Error creating Stripe coupons:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
 });
 
 /**
@@ -263,7 +391,7 @@ exports.formGridWebhook = functions.runWith(runtimeOpts).https.onRequest(async (
 async function handleSubscriptionCreated(session) {
   const { schoolId, userId, promoCode, districtId, numberOfSchools, pricePerSchool } = session.metadata || {};
 
-  // District subscription: cover ALL schools in the district
+  // District subscription: cover ALL schools with their selected tiers
   if (districtId) {
     const districtDoc = await db.collection('districts').doc(districtId).get();
     if (!districtDoc.exists) {
@@ -278,6 +406,16 @@ async function handleSubscriptionCreated(session) {
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + interval);
 
+    // Parse school→tier mapping from metadata (format: "schoolId1:S,schoolId2:M1,...")
+    const tierMap = {};
+    const schoolTiersStr = session.metadata?.schoolTiers || '';
+    if (schoolTiersStr) {
+      schoolTiersStr.split(',').forEach(entry => {
+        const [sid, tier] = entry.split(':');
+        if (sid && tier) tierMap[sid] = tier;
+      });
+    }
+
     const batch = db.batch();
     batch.update(db.collection('districts').doc(districtId), {
       subscriptionActive: true,
@@ -287,16 +425,21 @@ async function handleSubscriptionCreated(session) {
     });
 
     for (const sid of schoolIds) {
+      const tier = tierMap[sid] || 'S';
+      const tierInfo = STRIPE_PRICES[tier] || STRIPE_PRICES['S'];
       batch.update(db.collection('schools').doc(sid), {
         districtId,
         districtCovered: true,
         subscriptionActive: true,
         subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
+        planTier: tier,
+        studentCap: tierInfo.cap,
+        priceMonthly: tierInfo.monthlyAmount / 100,
       });
     }
 
     await batch.commit();
-    console.log('District subscription activated:', districtId, schoolIds.length, 'schools covered');
+    console.log('District subscription activated:', districtId, schoolIds.length, 'schools covered with tiers');
     if (userId) {
       const userDoc = await db.collection('users').doc(userId).get();
       if (userDoc.exists) {
@@ -488,37 +631,44 @@ async function sendSubscriptionCancelledEmail(email, orgName) {
 /**
  * Create district subscription checkout
  */
+/**
+ * Create a district Stripe checkout session.
+ * Districts pick a school tier (S/M1/M2/L/XL/ENT) for each school.
+ * If total students exceed the max tier cap (7,500), overage per-student pricing applies.
+ *
+ * Expected data.schools: [{ schoolId, tier }]
+ * Expected data.billing: "monthly" | "yearly"
+ * Optional data.overageStudents: number of students above 7,500 cap
+ * Optional data.totalStudents: total student count across all schools
+ */
 exports.createDistrictCheckout = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  const { districtId, pricingMode, totalStudents, numberOfSchools, successUrl, cancelUrl, couponCode } = data;
+  const { districtId, schools, billing, overageStudents, totalStudents, successUrl, cancelUrl, couponCode } = data;
   const uid = context.auth.uid;
+  const isYearly = billing === 'yearly';
 
   try {
-    let lineItems = [];
+    if (!Array.isArray(schools) || schools.length === 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Must include at least one school with a tier.');
+    }
 
-    if (pricingMode === 'perStudent') {
-      // Per-student/year pricing using real Stripe Price IDs
-      const students = parseInt(totalStudents, 10) || 0;
-      let districtTierKey = 'district_3k';
-      if (students > 60000) districtTierKey = 'district_60k';
-      else if (students > 30000) districtTierKey = 'district_30k';
-      else if (students > 15000) districtTierKey = 'district_15k';
-      else if (students > 7500) districtTierKey = 'district_7k';
-      else districtTierKey = 'district_3k';
+    // Build line items — one per school using school tier prices
+    const lineItems = schools.map(({ schoolId, tier }) => {
+      const tierInfo = STRIPE_PRICES[tier];
+      if (!tierInfo) throw new functions.https.HttpsError('invalid-argument', `Unknown tier: ${tier}`);
+      const priceId = isYearly ? tierInfo.yearlyPriceId : tierInfo.monthlyPriceId;
+      return { price: priceId, quantity: 1 };
+    });
 
-      const dPrice = DISTRICT_PRICES[districtTierKey];
-      if (!dPrice) throw new functions.https.HttpsError('invalid-argument', 'Invalid student count for district pricing');
-
-      // quantity = number of students; price = per-student/year
-      lineItems = [{ price: dPrice.priceId, quantity: students }];
-    } else {
-      // Per-school/year: $2,750/school/year
-      const schools = parseInt(numberOfSchools, 10) || 1;
-      const dPrice = DISTRICT_PRICES.perSchool;
-      lineItems = [{ price: dPrice.priceId, quantity: schools }];
+    // Add overage line item if students exceed max tier cap (7,500)
+    const overage = parseInt(overageStudents, 10) || 0;
+    if (overage > 0) {
+      const total = parseInt(totalStudents, 10) || overage;
+      const overageInfo = getOveragePriceId(total);
+      lineItems.push({ price: overageInfo.priceId, quantity: overage });
     }
 
     // Get or create Stripe customer
@@ -535,6 +685,9 @@ exports.createDistrictCheckout = functions.runWith(runtimeOpts).https.onCall(asy
       await db.collection('users').doc(uid).update({ stripeCustomerId: customerId });
     }
 
+    // Serialize school→tier mapping for metadata
+    const tierMap = schools.map(s => `${s.schoolId}:${s.tier}`).join(',');
+
     const sessionParams = {
       customer: customerId,
       payment_method_types: ['card'],
@@ -545,9 +698,11 @@ exports.createDistrictCheckout = functions.runWith(runtimeOpts).https.onCall(asy
       metadata: {
         districtId,
         userId: uid,
-        pricingMode: pricingMode || 'perSchool',
+        billing: billing || 'monthly',
+        schoolTiers: tierMap,
+        numberOfSchools: schools.length.toString(),
+        overageStudents: overage.toString(),
         totalStudents: (totalStudents || 0).toString(),
-        numberOfSchools: (numberOfSchools || 0).toString(),
       },
       subscription_data: {
         metadata: { districtId, userId: uid },

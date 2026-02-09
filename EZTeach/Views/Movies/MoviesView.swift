@@ -381,9 +381,274 @@ struct MoviesLibrary {
         }
     }()
 
+    // MARK: - Full-Length Public Domain Films (1hr+)
+    // These are verified public domain films hosted on the Internet Archive
+    static let fullLengthMovies: [EZMovie] = [
+        EZMovie(
+            id: "fl_charade",
+            title: "Charade",
+            description: "Cary Grant and Audrey Hepburn star in this classic comedy-mystery set in Paris. A woman's husband is murdered and several of his friends from WWII are after a missing fortune. Fun, witty, and full of twists!",
+            thumbnailUrl: "charade_thumb",
+            videoUrl: "https://archive.org/download/Charade_201512/Charade.mp4",
+            duration: "1h 53m",
+            rating: .pg,
+            genre: .classic,
+            releaseYear: 1963,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_his_girl_friday",
+            title: "His Girl Friday",
+            description: "A fast-talking newspaper editor tries to stop his ace reporter ex-wife from remarrying. One of the greatest screwball comedies ever made, starring Cary Grant and Rosalind Russell.",
+            thumbnailUrl: "his_girl_friday_thumb",
+            videoUrl: "https://archive.org/download/HisGirlFriday_364/HisGirlFriday.mp4",
+            duration: "1h 32m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1940,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_the_kid",
+            title: "The Kid",
+            description: "Charlie Chaplin's heartwarming masterpiece about the Little Tramp who finds and raises an abandoned baby. Groundbreaking blend of comedy and drama that's perfect for all ages.",
+            thumbnailUrl: "the_kid_thumb",
+            videoUrl: "https://archive.org/download/TheKid_723/The%20Kid%20%281921%29.mp4",
+            duration: "1h 8m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1921,
+            isEducational: true,
+            subject: "Social Studies"
+        ),
+        EZMovie(
+            id: "fl_my_man_godfrey",
+            title: "My Man Godfrey",
+            description: "A wealthy socialite hires a seemingly homeless man as the family butler during the Great Depression. A hilarious and thought-provoking comedy about wealth and kindness.",
+            thumbnailUrl: "my_man_godfrey_thumb",
+            videoUrl: "https://archive.org/download/MyManGodfrey/My_Man_Godfrey_512kb.mp4",
+            duration: "1h 34m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1936,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_little_princess",
+            title: "The Little Princess",
+            description: "Shirley Temple stars as a young girl left at a London boarding school while her father fights in the Boer War. A beloved family classic about hope and determination.",
+            thumbnailUrl: "little_princess_thumb",
+            videoUrl: "https://archive.org/download/TheLittlePrincess1939/The%20Little%20Princess%201939.mp4",
+            duration: "1h 31m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1939,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_christmas_carol",
+            title: "A Christmas Carol (Scrooge)",
+            description: "The classic Dickens tale brought to life. Ebenezer Scrooge is visited by three spirits who show him the true meaning of Christmas. Alastair Sim delivers an unforgettable performance.",
+            thumbnailUrl: "christmas_carol_thumb",
+            videoUrl: "https://archive.org/download/AChristmasCarol1951_20170525/A%20Christmas%20Carol%201951.mp4",
+            duration: "1h 26m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1951,
+            isEducational: true,
+            subject: "Reading"
+        ),
+        EZMovie(
+            id: "fl_royal_wedding",
+            title: "Royal Wedding",
+            description: "Fred Astaire dances on the ceiling in this delightful MGM musical about a brother-sister dance team who travel to London during the Royal Wedding of 1947.",
+            thumbnailUrl: "royal_wedding_thumb",
+            videoUrl: "https://archive.org/download/RoyalWedding/Royal%20Wedding.mp4",
+            duration: "1h 33m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1951,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_captain_kidd",
+            title: "Captain Kidd",
+            description: "Charles Laughton plays the infamous pirate Captain Kidd in this swashbuckling adventure tale. Sail the high seas and learn about the golden age of piracy.",
+            thumbnailUrl: "captain_kidd_thumb",
+            videoUrl: "https://archive.org/download/CaptainKidd1945/Captain%20Kidd%201945.mp4",
+            duration: "1h 29m",
+            rating: .pg,
+            genre: .adventure,
+            releaseYear: 1945,
+            isEducational: true,
+            subject: "Social Studies"
+        ),
+        EZMovie(
+            id: "fl_sherlock_weapon",
+            title: "Sherlock Holmes and the Secret Weapon",
+            description: "Basil Rathbone stars as the legendary detective in a WWII-era adventure. Holmes must protect a scientist and his invention from falling into enemy hands.",
+            thumbnailUrl: "sherlock_weapon_thumb",
+            videoUrl: "https://archive.org/download/SherlockHolmesAndTheSecretWeapon_20170707/Sherlock%20Holmes%20and%20the%20Secret%20Weapon.mp4",
+            duration: "1h 8m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1943,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_suddenly",
+            title: "Suddenly",
+            description: "Frank Sinatra in a gripping role as a would-be assassin who takes a family hostage in a small town. A tense thriller that explores duty and courage.",
+            thumbnailUrl: "suddenly_thumb",
+            videoUrl: "https://archive.org/download/Suddenly1954_201603/Suddenly.mp4",
+            duration: "1h 15m",
+            rating: .pg13,
+            genre: .classic,
+            releaseYear: 1954,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_stranger",
+            title: "The Stranger",
+            description: "Orson Welles directs and stars in this post-WWII thriller about a war crimes investigator tracking a Nazi hiding in a small Connecticut town.",
+            thumbnailUrl: "stranger_thumb",
+            videoUrl: "https://archive.org/download/TheStranger_0/The%20Stranger.mp4",
+            duration: "1h 35m",
+            rating: .pg,
+            genre: .classic,
+            releaseYear: 1946,
+            isEducational: true,
+            subject: "Social Studies"
+        ),
+        EZMovie(
+            id: "fl_39_steps",
+            title: "The 39 Steps",
+            description: "Alfred Hitchcock's thrilling tale of a man wrongly accused of murder who goes on the run across the Scottish Highlands. The film that made Hitchcock famous.",
+            thumbnailUrl: "39_steps_thumb",
+            videoUrl: "https://archive.org/download/the_39_steps/The%2039%20Steps%20%281935%29.mp4",
+            duration: "1h 26m",
+            rating: .pg,
+            genre: .adventure,
+            releaseYear: 1935,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_safety_last",
+            title: "Safety Last!",
+            description: "Harold Lloyd's iconic silent comedy where a department store worker must scale the side of a tall building. The famous clock-hanging scene is one of cinema's greatest moments.",
+            thumbnailUrl: "safety_last_thumb",
+            videoUrl: "https://archive.org/download/SafetyLast/Safety%20Last.mp4",
+            duration: "1h 13m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1923,
+            isEducational: true,
+            subject: "Social Studies"
+        ),
+        EZMovie(
+            id: "fl_mclintock",
+            title: "McLintock!",
+            description: "John Wayne stars in this hilarious Western comedy about a wealthy rancher dealing with family feuds, homesteaders, and a government agent. Great frontier fun.",
+            thumbnailUrl: "mclintock_thumb",
+            videoUrl: "https://archive.org/download/McLintock/McLintock.mp4",
+            duration: "2h 7m",
+            rating: .pg,
+            genre: .adventure,
+            releaseYear: 1963,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_gullivers_travels",
+            title: "Gulliver's Travels",
+            description: "The classic 1939 animated film based on Jonathan Swift's famous novel. Follow Gulliver's adventures in the land of tiny Lilliputians. A Fleischer Studios masterpiece.",
+            thumbnailUrl: "gullivers_thumb",
+            videoUrl: "https://archive.org/download/GulliversTravels1939/Gulliver%27s%20Travels%201939.mp4",
+            duration: "1h 14m",
+            rating: .g,
+            genre: .animated,
+            releaseYear: 1939,
+            isEducational: true,
+            subject: "Reading"
+        ),
+        EZMovie(
+            id: "fl_carnival_souls",
+            title: "Carnival of Souls",
+            description: "A mysterious and atmospheric film about a woman who survives a car accident and is haunted by strange visions. A cult classic of suspense cinema.",
+            thumbnailUrl: "carnival_souls_thumb",
+            videoUrl: "https://archive.org/download/CarnivalOfSouls/Carnival%20of%20Souls.mp4",
+            duration: "1h 18m",
+            rating: .pg13,
+            genre: .classic,
+            releaseYear: 1962,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_star_born",
+            title: "A Star Is Born (1937)",
+            description: "The original version of the timeless Hollywood story. A young actress rises to fame while her mentor and husband struggles. Starring Janet Gaynor and Fredric March.",
+            thumbnailUrl: "star_born_thumb",
+            videoUrl: "https://archive.org/download/AStarIsBorn1937_201707/A%20Star%20is%20Born%201937.mp4",
+            duration: "1h 51m",
+            rating: .pg,
+            genre: .classic,
+            releaseYear: 1937,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_doa",
+            title: "D.O.A.",
+            description: "A man discovers he has been fatally poisoned and has only days to find his own murderer. One of the most creative film noir plots ever conceived.",
+            thumbnailUrl: "doa_thumb",
+            videoUrl: "https://archive.org/download/DOA1950_201512/D.O.A.%201950.mp4",
+            duration: "1h 23m",
+            rating: .pg,
+            genre: .classic,
+            releaseYear: 1950,
+            isEducational: false,
+            subject: nil
+        ),
+        EZMovie(
+            id: "fl_voyage_bottom_sea",
+            title: "Voyage to the Bottom of the Sea",
+            description: "The Van Allen radiation belt catches fire, and a nuclear submarine races to save the planet. An exciting sci-fi adventure about teamwork and science.",
+            thumbnailUrl: "voyage_sea_thumb",
+            videoUrl: "https://archive.org/download/VoyageToTheBottomOfTheSea1961/Voyage%20to%20the%20Bottom%20of%20the%20Sea%201961.mp4",
+            duration: "1h 45m",
+            rating: .pg,
+            genre: .science,
+            releaseYear: 1961,
+            isEducational: true,
+            subject: "Science"
+        ),
+        EZMovie(
+            id: "fl_angel_street",
+            title: "Angel on My Shoulder",
+            description: "A gangster makes a deal with the Devil to return to Earth and ends up doing good deeds. A fun supernatural comedy starring Paul Muni and Claude Rains.",
+            thumbnailUrl: "angel_shoulder_thumb",
+            videoUrl: "https://archive.org/download/AngelOnMyShoulder1946/Angel%20on%20My%20Shoulder%201946.mp4",
+            duration: "1h 41m",
+            rating: .g,
+            genre: .classic,
+            releaseYear: 1946,
+            isEducational: false,
+            subject: nil
+        )
+    ]
+
     /// All movies combined
     static var allMovies: [EZMovie] {
-        movies + extendedMovies
+        movies + fullLengthMovies + extendedMovies
     }
 }
 

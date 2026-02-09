@@ -25,6 +25,7 @@ struct MainContainerView: View {
     @State private var schoolName: String = ""
     @State private var schoolLogoUrl: String = ""
     @State private var welcomeMessage: String = ""
+    @State private var subscriptionActive: Bool = false
 
     // Edit sheets
     @State private var showEditHomepage = false
@@ -273,6 +274,7 @@ struct MainContainerView: View {
             guard let data = snap?.data() else { return }
             schoolLogoUrl = data["logoUrl"] as? String ?? ""
             welcomeMessage = data["welcomeMessage"] as? String ?? ""
+            subscriptionActive = data["subscriptionActive"] as? Bool ?? false
         }
     }
 
@@ -330,10 +332,24 @@ struct MainContainerView: View {
             .onDisappear { menuSheet = nil }
     }
 
+    /// Features that are always free (no subscription required)
+    private var freeSheets: Set<MenuSheet> {
+        [.account, .plansBilling, .parentPortal]
+    }
+
     @ViewBuilder
     private func menuSheetContentInner(_ sheet: MenuSheet) -> some View {
         let sid = schoolId ?? (role == "district" ? (districtSchoolIds.first ?? "") : "")
         let hasSchool = !sid.isEmpty
+
+        // --- Subscription gate ---
+        // Free features bypass the gate; everything else requires active subscription
+        if !freeSheets.contains(sheet) && hasSchool && !subscriptionActive {
+            SubscriptionRequiredView {
+                menuSheet = nil
+                menuSheet = .plansBilling
+            }
+        } else {
 
         switch sheet {
             case .account:
@@ -449,7 +465,6 @@ struct MainContainerView: View {
                 
             case .aiStudyPlan:
                 if hasSchool {
-                    // For parents, this shows study plans for their children
                     AIStudyPlanView(schoolId: sid, studentId: "", studentName: "My Child")
                 } else {
                     NeedSchoolSheetView(feature: "AI Study Plans") { menuSheet = nil; activeSheet = .switchSchool }
@@ -496,5 +511,6 @@ struct MainContainerView: View {
                     NeedSchoolSheetView(feature: "Standards Explorer") { menuSheet = nil; activeSheet = .switchSchool }
                 }
         }
+        } // end subscription gate else
     }
 }

@@ -211,30 +211,14 @@ struct PlansBillingView: View {
     // MARK: - District pricing note
     private var districtPricingNote: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("District Annual Pricing")
+            Text("District Plans")
                 .font(.headline)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Per-student/year (all features):")
-                    .font(.subheadline.bold())
-                pricingRow("3,000–7,500 students", "$12/student/yr")
-                pricingRow("7,501–15,000 students", "$11/student/yr")
-                pricingRow("15,001–30,000 students", "$10/student/yr")
-                pricingRow("30,001–60,000 students", "$9/student/yr")
-                pricingRow("60,000+ students", "$8/student/yr")
-            }
+            Text("Districts pick a plan tier for each school — same tiers as above. Over 7,500 students? Per-student overage rates apply ($8–$12/student/yr).")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
 
-            Divider()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Alternative per-school option:")
-                    .font(.subheadline.bold())
-                Text("$2,750 per school/year (up to 750 students/school)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Text("Contact us at ezteach0@gmail.com or visit ezteach.org for district pricing.")
+            Text("Contact us at ezteach0@gmail.com or visit ezteach.org for district setup.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .padding(.top, 4)
@@ -242,18 +226,6 @@ struct PlansBillingView: View {
         .padding(16)
         .background(EZTeachColors.secondaryBackground)
         .cornerRadius(14)
-    }
-
-    private func pricingRow(_ range: String, _ price: String) -> some View {
-        HStack {
-            Text(range)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Spacer()
-            Text(price)
-                .font(.caption.bold())
-                .foregroundColor(EZTeachColors.accent)
-        }
     }
 
     // MARK: - District banner

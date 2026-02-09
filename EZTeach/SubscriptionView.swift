@@ -27,7 +27,9 @@ struct SubscriptionView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         headerSection
+                        autoPaymentBanner
                         tierSection
+                        discountCodesSection
                         featuresSection
                         districtSection
                         manageAccountSection
@@ -156,34 +158,53 @@ struct SubscriptionView: View {
         }
     }
 
-    // MARK: - District Pricing
-    private var districtSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("District Annual Pricing")
-                .font(.headline)
-
-            Text("Per-student/year (all features included):")
-                .font(.subheadline.bold())
-
-            VStack(spacing: 6) {
-                districtRow("3,000–7,500 students", "$12/student/yr")
-                districtRow("7,501–15,000 students", "$11/student/yr")
-                districtRow("15,001–30,000 students", "$10/student/yr")
-                districtRow("30,001–60,000 students", "$9/student/yr")
-                districtRow("60,000+ students", "$8/student/yr")
-            }
-
-            Divider()
+    // MARK: - Auto-Payment Banner
+    private var autoPaymentBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                .font(.title2)
+                .foregroundColor(.green)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Per-school option:")
+                Text("Enable Automatic Payments")
                     .font(.subheadline.bold())
-                Text("$2,750/school/year (up to 750 students)")
+                Text("We recommend automatic renewal so your school never loses access to features. Set it up during checkout or in your account settings.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+        .padding(14)
+        .background(Color.green.opacity(0.08))
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+        )
+    }
 
-            Text("Contact ezteach0@gmail.com for district pricing.")
+    // MARK: - Discount Codes
+    private var discountCodesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Discount Codes")
+                .font(.headline)
+
+            VStack(spacing: 8) {
+                Text("Monthly")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                discountRow(code: "EZT-M25-7KP9X4", description: "25% off monthly")
+                discountRow(code: "EZT-M100-R5J6T8", description: "100% off monthly")
+
+                Divider()
+
+                Text("Yearly")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                discountRow(code: "EZT-Y25-3NQ8W2", description: "25% off yearly")
+                discountRow(code: "EZT-Y100-V2L4M9", description: "100% off yearly")
+            }
+
+            Text("Enter a code during checkout on our website.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -192,7 +213,95 @@ struct SubscriptionView: View {
         .cornerRadius(14)
     }
 
-    private func districtRow(_ range: String, _ price: String) -> some View {
+    private func discountRow(code: String, description: String) -> some View {
+        HStack(spacing: 12) {
+            Text(code)
+                .font(.caption.bold().monospaced())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(EZTeachColors.accent.opacity(0.1))
+                .foregroundColor(EZTeachColors.accent)
+                .cornerRadius(6)
+
+            Text(description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Spacer()
+
+            Button {
+                UIPasteboard.general.string = code
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    // MARK: - District Pricing
+    private var districtSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("District Plans")
+                .font(.headline)
+
+            Text("Districts pick a plan tier for each school — same tiers as above.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(EZTeachColors.success)
+                        .font(.caption)
+                    Text("Choose a tier per school based on school size")
+                        .font(.caption)
+                }
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(EZTeachColors.success)
+                        .font(.caption)
+                    Text("All features included at every tier")
+                        .font(.caption)
+                }
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(EZTeachColors.success)
+                        .font(.caption)
+                    Text("Change tiers anytime as schools grow")
+                        .font(.caption)
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Over 7,500 Students?")
+                    .font(.subheadline.bold())
+
+                Text("Schools or districts that exceed the max tier cap (7,500) pay a per-student/year overage rate:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                VStack(spacing: 4) {
+                    overageRow("7,501–15,000 students", "$12/student/yr")
+                    overageRow("15,001–30,000 students", "$11/student/yr")
+                    overageRow("30,001–60,000 students", "$10/student/yr")
+                    overageRow("60,001–100,000 students", "$9/student/yr")
+                    overageRow("100,000+ students", "$8/student/yr")
+                }
+            }
+
+            Text("Contact ezteach0@gmail.com for district setup.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(14)
+    }
+
+    private func overageRow(_ range: String, _ price: String) -> some View {
         HStack {
             Text(range)
                 .font(.caption)

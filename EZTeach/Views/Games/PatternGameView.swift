@@ -483,7 +483,8 @@ struct PatternGameView: View {
     
     private func getNextInPattern() -> PatternItem {
         guard pattern.count >= 2 else { return PatternItem(symbol: shapes[0], color: colors[0]) }
-        let lastSymbol = pattern.last!.symbol
+        guard let lastItem = pattern.last else { return PatternItem(symbol: shapes[0], color: colors[0]) }
+        let lastSymbol = lastItem.symbol
         let prevSymbol = pattern[pattern.count - 2].symbol
         let idx = shapes.firstIndex(of: lastSymbol) ?? 0
         let prevIdx = shapes.firstIndex(of: prevSymbol) ?? 0
@@ -491,7 +492,7 @@ struct PatternGameView: View {
         let nextIdx = (idx + step) % shapes.count
         
         // For colors, also follow a pattern
-        let lastColor = pattern.last!.color
+        let lastColor = lastItem.color
         let colorIdx = colors.firstIndex(of: lastColor) ?? 0
         let nextColorIdx = (colorIdx + 1) % colors.count
         

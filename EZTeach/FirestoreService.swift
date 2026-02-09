@@ -29,7 +29,9 @@ final class FirestoreService {
         zip: String,
         gradesFrom: Int,
         gradesTo: Int,
-        schoolCode: String
+        schoolCode: String,
+        approximateStudents: Int = 0,
+        districtCode: String = ""
     ) async throws {
 
         let normalizedEmail = email.trimmingCharacters(in: .whitespaces).lowercased()
@@ -41,7 +43,32 @@ final class FirestoreService {
         let grades = Array(gradesFrom...gradesTo)
 
         let normalizedSchoolCode = schoolCode.trimmingCharacters(in: .whitespaces).uppercased()
-        try await schoolRef.setData([
+
+        // Check if school is linked to a district that already paid
+        var linkedDistrictId: String?
+        var districtPaidForSchool = false
+
+        let trimmedDistrictCode = districtCode.trimmingCharacters(in: .whitespaces).uppercased()
+        if !trimmedDistrictCode.isEmpty {
+            let districtSnap = try await db.collection("districts")
+                .whereField("districtCode", isEqualTo: trimmedDistrictCode)
+                .getDocuments()
+            if let districtDoc = districtSnap.documents.first {
+                linkedDistrictId = districtDoc.documentID
+                let districtData = districtDoc.data()
+                // If district has active subscription, the school gets it too
+                districtPaidForSchool = districtData["subscriptionActive"] as? Bool ?? false
+
+                // Add this school to the district's schoolIds list
+                var schoolIds = districtData["schoolIds"] as? [String] ?? []
+                schoolIds.append(schoolRef.documentID)
+                try await db.collection("districts").document(districtDoc.documentID).updateData([
+                    "schoolIds": schoolIds
+                ])
+            }
+        }
+
+        var schoolData: [String: Any] = [
             "name": name,
             "address": address,
             "city": city,
@@ -50,18 +77,25 @@ final class FirestoreService {
             "schoolCode": normalizedSchoolCode,
             "grades": grades,
             "ownerUid": uid,
-            "subscriptionStatus": "inactive",
-            "subscriptionActive": false,
+            "subscriptionStatus": districtPaidForSchool ? "active" : "inactive",
+            "subscriptionActive": districtPaidForSchool,
             "subscriptionEndDate": NSNull(),
-            // Pricing / plan fields
-            "planType": "school",
+            "planType": linkedDistrictId != nil ? "district" : "school",
             "planTier": "S",
             "priceMonthly": 129,
             "studentCap": 200,
             "studentCount": 0,
+            "approximateStudents": approximateStudents,
             "isActive": true,
             "createdAt": Timestamp()
-        ])
+        ]
+
+        if let did = linkedDistrictId {
+            schoolData["districtId"] = did
+            schoolData["paidBy"] = districtPaidForSchool ? "district" : "pending"
+        }
+
+        try await schoolRef.setData(schoolData)
 
         try await db.collection("users").document(uid).setData([
             "email": normalizedEmail,
@@ -71,6 +105,7 @@ final class FirestoreService {
             "joinedSchools": [
                 ["id": schoolRef.documentID, "name": name]
             ],
+            "districtId": linkedDistrictId as Any,
             "createdAt": Timestamp()
         ])
     }
@@ -98,12 +133,13 @@ final class FirestoreService {
         let uid = result.user.uid
         let districtRef = db.collection("districts").document()
         
-        // Calculate pricing
-        let pricing = District.calculatePrice(schoolCount: numberOfSchools)
-        
+        // Generate a unique 8-character district code
+        let districtCode = String((0..<8).map { _ in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".randomElement()! })
+
         try await districtRef.setData([
             "name": districtName,
             "ownerUid": uid,
+            "districtCode": districtCode,
             "adminFirstName": firstName,
             "adminLastName": lastName,
             "adminEmail": normalizedEmail,
@@ -114,9 +150,6 @@ final class FirestoreService {
             "zip": zip,
             "schoolCount": numberOfSchools,
             "schoolIds": [],
-            "subscriptionTier": pricing.tier.rawValue,
-            "monthlyPrice": pricing.total,
-            "pricePerSchool": pricing.pricePerSchool,
             "subscriptionStatus": "inactive",
             "subscriptionActive": false,
             "subscriptionEndDate": NSNull(),
@@ -261,10 +294,16 @@ final class FirestoreService {
         let schoolName = schoolData["name"] as? String ?? "School"
         let schoolCity = schoolData["city"] as? String ?? ""
 
-        // Block join only if the school account has been explicitly deactivated
+        // Block join if the school account has been deactivated
         let isActive = schoolData["isActive"] as? Bool ?? true
         if !isActive {
             throw NSError(domain: "SchoolDeactivated", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school account has been deactivated. Please contact the school administrator."])
+        }
+
+        // Block join if the school does not have an active subscription
+        let subActive = schoolData["subscriptionActive"] as? Bool ?? false
+        if !subActive {
+            throw NSError(domain: "SubscriptionRequired", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school's subscription is not yet active. The school administrator must complete payment before staff can join."])
         }
 
         let userRef = db.collection("users").document(uid)
@@ -314,10 +353,16 @@ final class FirestoreService {
         let schoolName = schoolData["name"] as? String ?? "School"
         let schoolCity = schoolData["city"] as? String ?? ""
         
-        // Block join only if the school account has been explicitly deactivated
+        // Block join if the school account has been deactivated
         let isActive = schoolData["isActive"] as? Bool ?? true
         if !isActive {
             throw NSError(domain: "SchoolDeactivated", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school account has been deactivated. Please contact the school administrator."])
+        }
+
+        // Block join if the school does not have an active subscription
+        let subActive = schoolData["subscriptionActive"] as? Bool ?? false
+        if !subActive {
+            throw NSError(domain: "SubscriptionRequired", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school's subscription is not yet active. The school administrator must complete payment before staff can join."])
         }
         
         let userRef = db.collection("users").document(uid)
@@ -385,7 +430,8 @@ final class FirestoreService {
         adminEmail: String,
         adminPassword: String,
         adminFirstName: String,
-        adminLastName: String
+        adminLastName: String,
+        approximateStudents: Int = 0
     ) async throws -> (id: String, code: String, name: String) {
         let code = schoolCode
         let existing = try await lookupSchoolByCode(code)
@@ -417,6 +463,7 @@ final class FirestoreService {
             "priceMonthly": 129,
             "studentCap": 200,
             "studentCount": 0,
+            "approximateStudents": approximateStudents,
             "isActive": true,
             "createdAt": Timestamp()
         ])
@@ -898,5 +945,49 @@ final class FirestoreService {
             "priceMonthly": tier.price,
             "studentCap": tier.cap
         ])
+    }
+
+    // MARK: - Classroom Management
+
+    /// Create a new classroom for a school. Returns the new class document ID.
+    @discardableResult
+    func createClassroom(
+        schoolId: String,
+        name: String,
+        grade: Int,
+        teacherIds: [String] = [],
+        classType: String = "regular",
+        subjectType: String = "homeroom",
+        period: Int? = nil,
+        scheduleDay: String? = nil
+    ) async throws -> String {
+        var data: [String: Any] = [
+            "name": name,
+            "grade": grade,
+            "schoolId": schoolId,
+            "teacherIds": teacherIds,
+            "classType": classType,
+            "subjectType": subjectType,
+            "createdAt": FieldValue.serverTimestamp()
+        ]
+        if let p = period { data["period"] = p }
+        if let d = scheduleDay, !d.isEmpty { data["scheduleDay"] = d }
+
+        let ref = try await db.collection("classes").addDocument(data: data)
+        return ref.documentID
+    }
+
+    /// Delete a classroom and its associated roster entries.
+    func deleteClassroom(classId: String) async throws {
+        // Delete roster entries
+        let rosterSnap = try await db.collection("class_rosters")
+            .whereField("classId", isEqualTo: classId)
+            .getDocuments()
+        let batch = db.batch()
+        for doc in rosterSnap.documents {
+            batch.deleteDocument(doc.reference)
+        }
+        batch.deleteDocument(db.collection("classes").document(classId))
+        try await batch.commit()
     }
 }
