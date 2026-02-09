@@ -13,6 +13,7 @@ struct EZLearningGamesHubView: View {
     var gradeLevel: Int = 0
     @State private var searchText = ""
     @State private var searchCategoryFilter: GameCategory?
+    @Environment(\.horizontalSizeClass) private var sizeClass
     
     private var searchResults: [(GameItem, GameCategory)] {
         let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
@@ -150,7 +151,7 @@ struct EZLearningGamesHubView: View {
                             gradeLevel: gradeLevel
                         )
                     } else {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: sizeClass == .regular ? 3 : 2), spacing: 20) {
                             ForEach(GameCategory.allCases, id: \.self) { cat in
                                 NavigationLink(value: cat) {
                                     TronCategoryCard(category: cat)

@@ -35,6 +35,11 @@ struct StudentPortalView: View {
         }
     }
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
+
+    private var isWideScreen: Bool { horizontalSizeClass == .regular }
+
     var body: some View {
         Group {
             if student == nil && !loadFailed {
@@ -56,42 +61,63 @@ struct StudentPortalView: View {
                     .foregroundColor(EZTeachColors.brightTeal)
                 }
             } else if let s = student {
-                ZStack(alignment: .leading) {
-                    NavigationStack {
-                        currentPage(s)
-                            .background(EZTeachColors.lightSky)
-                            .navigationTitle(selectedPage.title)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarLeading) {
-                                    Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                            showMenu.toggle()
-                                        }
-                                    } label: {
-                                        Image(systemName: "line.3.horizontal")
-                                            .font(.title3.weight(.medium))
-                                            .foregroundColor(EZTeachColors.brightTeal)
-                                    }
-                                }
-                            }
-                    }
-                    if showMenu {
-                        Color.black.opacity(0.4)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    showMenu = false
-                                }
-                            }
-                            .transition(.opacity)
+                if isWideScreen {
+                    // iPad / Mac: persistent sidebar
+                    NavigationSplitView(columnVisibility: $sidebarVisibility) {
                         StudentSideMenuView(
-                            showMenu: $showMenu,
+                            showMenu: .constant(true),
                             selectedPage: $selectedPage,
                             student: s,
                             schoolName: schoolName
                         )
-                        .transition(.move(edge: .leading))
-                        .zIndex(1)
+                        .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 300)
+                    } detail: {
+                        NavigationStack {
+                            currentPage(s)
+                                .background(EZTeachColors.lightSky)
+                                .navigationTitle(selectedPage.title)
+                        }
+                    }
+                    .navigationSplitViewStyle(.balanced)
+                } else {
+                    // iPhone: slide-out overlay
+                    ZStack(alignment: .leading) {
+                        NavigationStack {
+                            currentPage(s)
+                                .background(EZTeachColors.lightSky)
+                                .navigationTitle(selectedPage.title)
+                                .toolbar {
+                                    ToolbarItem(placement: .topBarLeading) {
+                                        Button {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                showMenu.toggle()
+                                            }
+                                        } label: {
+                                            Image(systemName: "line.3.horizontal")
+                                                .font(.title3.weight(.medium))
+                                                .foregroundColor(EZTeachColors.brightTeal)
+                                        }
+                                    }
+                                }
+                        }
+                        if showMenu {
+                            Color.black.opacity(0.4)
+                                .ignoresSafeArea()
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        showMenu = false
+                                    }
+                                }
+                                .transition(.opacity)
+                            StudentSideMenuView(
+                                showMenu: $showMenu,
+                                selectedPage: $selectedPage,
+                                student: s,
+                                schoolName: schoolName
+                            )
+                            .transition(.move(edge: .leading))
+                            .zIndex(1)
+                        }
                     }
                 }
             }

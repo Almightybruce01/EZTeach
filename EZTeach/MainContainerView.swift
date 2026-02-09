@@ -85,98 +85,80 @@ struct MainContainerView: View {
 
     @State private var menuSheet: MenuSheet?
     @State private var districtSchoolIds: [String] = []
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    /// True on iPad / Mac (regular width)
+    private var isWideScreen: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
-        ZStack(alignment: .leading) {
+        Group {
+            if isWideScreen {
+                // iPad / Mac: persistent sidebar with split view
+                NavigationSplitView(columnVisibility: $sidebarVisibility) {
+                    SideMenuView(
+                        showMenu: .constant(true),
+                        selectedPage: $selectedPage,
+                        activeSheet: $activeSheet,
+                        menuSheet: $menuSheet,
+                        role: role,
+                        schoolId: schoolId ?? "",
+                        districtSchoolIds: districtSchoolIds
+                    )
+                    .navigationSplitViewColumnWidth(min: 260, ideal: 280, max: 320)
+                } detail: {
+                    NavigationStack {
+                        currentPage
+                            .background(EZTeachColors.background)
+                            .toolbar { trailingToolbar }
+                    }
+                }
+                .navigationSplitViewStyle(.balanced)
+            } else {
+                // iPhone: slide-out overlay menu
+                ZStack(alignment: .leading) {
+                    NavigationStack {
+                        currentPage
+                            .background(EZTeachColors.background)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarLeading) {
+                                    Button {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            showMenu.toggle()
+                                        }
+                                    } label: {
+                                        Image(systemName: "line.3.horizontal")
+                                            .font(.title3.weight(.medium))
+                                    }
+                                }
+                                trailingToolbar
+                            }
+                    }
 
-            NavigationStack {
-                currentPage
-                    .background(EZTeachColors.background)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button {
+                    // Menu overlay
+                    if showMenu {
+                        Color.black.opacity(0.4)
+                            .ignoresSafeArea()
+                            .onTapGesture {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    showMenu.toggle()
-                                }
-                            } label: {
-                                Image(systemName: "line.3.horizontal")
-                                    .font(.title3.weight(.medium))
-                            }
-                        }
-
-                        // School edit menu (only on home page for school accounts)
-                        if selectedPage == .home && role == "school" && schoolId != nil {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Menu {
-                                    Button {
-                                        showEditHomepage = true
-                                    } label: {
-                                        Label("Edit Homepage", systemImage: "house")
-                                    }
-
-                                    Button {
-                                        showEditCalendar = true
-                                    } label: {
-                                        Label("Add Calendar Event", systemImage: "calendar.badge.plus")
-                                    }
-
-                                    Button {
-                                        showAddAnnouncement = true
-                                    } label: {
-                                        Label("Add Announcement", systemImage: "megaphone")
-                                    }
-                                } label: {
-                                    Image(systemName: "pencil.circle.fill")
-                                        .font(.title3)
-                                        .foregroundStyle(EZTeachColors.accentGradient)
+                                    showMenu = false
                                 }
                             }
-                        }
+                            .transition(.opacity)
 
-                        // Teacher announcement button (on home page)
-                        if selectedPage == .home && role == "teacher" && schoolId != nil {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button {
-                                    showAddAnnouncement = true
-                                } label: {
-                                    Image(systemName: "megaphone")
-                                        .font(.title3)
-                                        .foregroundColor(EZTeachColors.accent)
-                                }
-                            }
-                        }
-
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button { showInfo = true } label: {
-                                Image(systemName: "questionmark.circle")
-                                    .font(.title3)
-                            }
-                        }
+                        SideMenuView(
+                            showMenu: $showMenu,
+                            selectedPage: $selectedPage,
+                            activeSheet: $activeSheet,
+                            menuSheet: $menuSheet,
+                            role: role,
+                            schoolId: schoolId ?? "",
+                            districtSchoolIds: districtSchoolIds
+                        )
+                        .transition(.move(edge: .leading))
+                        .zIndex(1)
                     }
-            }
-
-            // Menu overlay
-            if showMenu {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showMenu = false
-                        }
-                    }
-                    .transition(.opacity)
-
-                SideMenuView(
-                    showMenu: $showMenu,
-                    selectedPage: $selectedPage,
-                    activeSheet: $activeSheet,
-                    menuSheet: $menuSheet,
-                    role: role,
-                    schoolId: schoolId ?? "",
-                    districtSchoolIds: districtSchoolIds
-                )
-                .transition(.move(edge: .leading))
-                .zIndex(1)
+                }
             }
         }
         .sheet(item: $activeSheet) { sheet in
@@ -238,6 +220,57 @@ struct MainContainerView: View {
             OfficeInfoView()
         case .grades:
             GradesListView()
+        }
+    }
+
+    // MARK: - Shared trailing toolbar items
+    @ToolbarContentBuilder
+    var trailingToolbar: some ToolbarContent {
+        // School edit menu (only on home page for school accounts)
+        if selectedPage == .home && role == "school" && schoolId != nil {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showEditHomepage = true
+                    } label: {
+                        Label("Edit Homepage", systemImage: "house")
+                    }
+                    Button {
+                        showEditCalendar = true
+                    } label: {
+                        Label("Add Calendar Event", systemImage: "calendar.badge.plus")
+                    }
+                    Button {
+                        showAddAnnouncement = true
+                    } label: {
+                        Label("Add Announcement", systemImage: "megaphone")
+                    }
+                } label: {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(EZTeachColors.accentGradient)
+                }
+            }
+        }
+
+        // Teacher announcement button (on home page)
+        if selectedPage == .home && role == "teacher" && schoolId != nil {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showAddAnnouncement = true
+                } label: {
+                    Image(systemName: "megaphone")
+                        .font(.title3)
+                        .foregroundColor(EZTeachColors.accent)
+                }
+            }
+        }
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { showInfo = true } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.title3)
+            }
         }
     }
 

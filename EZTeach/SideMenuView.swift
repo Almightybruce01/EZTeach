@@ -24,7 +24,11 @@ struct SideMenuView: View {
     @State private var districtId: String = ""
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private let db = Firestore.firestore()
+
+    /// When in regular (iPad/Mac) width, the sidebar is managed by NavigationSplitView
+    private var isPersistentSidebar: Bool { horizontalSizeClass == .regular }
 
     private func open(_ sheet: MainContainerView.MenuSheet) {
         menuSheet = sheet
@@ -188,9 +192,10 @@ struct SideMenuView: View {
             // Footer with sign out
             footerSection
         }
-        .frame(width: 280)
+        .frame(width: isPersistentSidebar ? nil : 280)
+        .frame(maxWidth: isPersistentSidebar ? .infinity : nil)
         .background(menuBackground)
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: isPersistentSidebar ? [] : .all)
         .onAppear(perform: loadUserData)
     }
 
@@ -251,7 +256,7 @@ struct SideMenuView: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 60)
+        .padding(.top, isPersistentSidebar ? 20 : 60)
         .padding(.bottom, 16)
     }
 

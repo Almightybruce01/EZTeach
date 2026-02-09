@@ -27,6 +27,8 @@ struct VideoMeetingView: View {
     @State private var joinError: String?
     @State private var joinedMeeting: VideoMeeting?
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isWide: Bool { sizeClass == .regular }
     private let db = Firestore.firestore()
 
     private var canCreate: Bool {

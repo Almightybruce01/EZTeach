@@ -439,3 +439,71 @@ struct EZSectionHeader: View {
         }
     }
 }
+
+// MARK: - iPad Adaptive Layout Modifier
+/// Ensures content looks great on both iPhone and iPad.
+/// On iPad / Mac (regular width), centers content with a comfortable max width
+/// and increases horizontal padding. On iPhone, uses standard padding.
+struct iPadAdaptiveModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    let maxContentWidth: CGFloat
+    let compactPadding: CGFloat
+    let regularPadding: CGFloat
+
+    init(maxWidth: CGFloat = 720, compactPadding: CGFloat = 16, regularPadding: CGFloat = 32) {
+        self.maxContentWidth = maxWidth
+        self.compactPadding = compactPadding
+        self.regularPadding = regularPadding
+    }
+
+    func body(content: Content) -> some View {
+        GeometryReader { geo in
+            let isWide = sizeClass == .regular
+            let hPadding = isWide ? regularPadding : compactPadding
+
+            content
+                .frame(maxWidth: isWide ? maxContentWidth : .infinity)
+                .frame(maxWidth: .infinity) // centers the inner frame
+                .padding(.horizontal, hPadding)
+        }
+    }
+}
+
+/// Modifier that adapts grid column count for iPad
+struct iPadAdaptiveGridModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    let compactColumns: Int
+    let regularColumns: Int
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.iPadColumnCount, sizeClass == .regular ? regularColumns : compactColumns)
+    }
+}
+
+/// Environment key to pass adaptive column count to child views
+private struct iPadColumnCountKey: EnvironmentKey {
+    static let defaultValue: Int = 1
+}
+
+extension EnvironmentValues {
+    var iPadColumnCount: Int {
+        get { self[iPadColumnCountKey.self] }
+        set { self[iPadColumnCountKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Apply iPad-adaptive content centering with max readable width.
+    /// Great for ScrollView-based content pages.
+    func iPadReadableWidth(maxWidth: CGFloat = 720) -> some View {
+        modifier(iPadAdaptiveModifier(maxWidth: maxWidth))
+    }
+
+    /// Provide adaptive column count via environment
+    func iPadAdaptiveGrid(compact: Int = 1, regular: Int = 2) -> some View {
+        modifier(iPadAdaptiveGridModifier(compactColumns: compact, regularColumns: regular))
+    }
+}

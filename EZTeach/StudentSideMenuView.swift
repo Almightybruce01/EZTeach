@@ -13,6 +13,8 @@ struct StudentSideMenuView: View {
     let schoolName: String
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var isPersistentSidebar: Bool { horizontalSizeClass == .regular }
 
     private func go(_ page: StudentPortalView.StudentPage) {
         selectedPage = page
@@ -112,9 +114,10 @@ struct StudentSideMenuView: View {
             }
             .padding(.bottom, 30)
         }
-        .frame(width: 280)
+        .frame(width: isPersistentSidebar ? nil : 280)
+        .frame(maxWidth: isPersistentSidebar ? .infinity : nil)
         .background(menuBackground)
-        .ignoresSafeArea()
+        .ignoresSafeArea(edges: isPersistentSidebar ? [] : .all)
     }
 
     private var headerSection: some View {
@@ -166,7 +169,7 @@ struct StudentSideMenuView: View {
             .cornerRadius(20)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 60)
+        .padding(.top, isPersistentSidebar ? 20 : 60)
         .padding(.bottom, 16)
     }
 
