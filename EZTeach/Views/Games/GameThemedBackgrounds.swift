@@ -878,73 +878,97 @@ struct MagicalLibraryBackground: View {
     @State private var bookFloat: [CGFloat] = Array(repeating: 0, count: 5)
     @State private var sparkle = false
     
+    private let bookColors: [Color] = [.red, .blue, .green, .purple, .orange]
+    private let shelfColors: [Color] = [.red, .blue, .green, .brown, .purple, .orange]
+    private let sparkleXOffsets: [CGFloat] = [-100, 80, -60, 120, -140, 40, 100, -80, 60, -120, 140, 0]
+    private let sparkleYOffsets: [CGFloat] = [-200, -100, 50, -150, 100, -50, 150, 0, -180, 80, -80, 120]
+    
     var body: some View {
         ZStack {
-            // Warm library gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.2, green: 0.15, blue: 0.1),
-                    Color(red: 0.35, green: 0.25, blue: 0.15),
-                    Color(red: 0.25, green: 0.18, blue: 0.1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            
-            // Floating books
-            ForEach(0..<5, id: \.self) { i in
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 30 + CGFloat(i * 5)))
-                    .foregroundColor([.red, .blue, .green, .purple, .orange][i].opacity(0.7))
-                    .rotationEffect(.degrees(Double(i * 15) - 30))
-                    .offset(
-                        x: CGFloat(i * 60) - 120,
-                        y: bookFloat[i] + CGFloat(i * 30) - 100
-                    )
-            }
-            
-            // Sparkles
-            ForEach(0..<12, id: \.self) { i in
-                Image(systemName: "sparkle")
-                    .font(.system(size: CGFloat(8 + i % 4 * 4)))
-                    .foregroundColor(.yellow)
-                    .opacity(sparkle && i % 2 == 0 ? 1 : 0.3)
-                    .offset(
-                        x: CGFloat([-100, 80, -60, 120, -140, 40, 100, -80, 60, -120, 140, 0][i]),
-                        y: CGFloat([-200, -100, 50, -150, 100, -50, 150, 0, -180, 80, -80, 120][i])
-                    )
-            }
-            
-            // Bookshelf at bottom
-            VStack {
-                Spacer()
-                HStack(spacing: 4) {
-                    ForEach(0..<12, id: \.self) { i in
-                        Rectangle()
-                            .fill([Color.red, .blue, .green, .brown, .purple, .orange][i % 6].opacity(0.8))
-                            .frame(width: 20, height: 60 + CGFloat(i % 4) * 10)
-                    }
-                }
-                .padding(.horizontal)
-                Rectangle()
-                    .fill(Color.brown.opacity(0.9))
-                    .frame(height: 20)
-            }
+            libraryGradient
+            floatingBooks
+            sparkles
+            bookshelf
         }
         .ignoresSafeArea()
         .onAppear {
-            for i in 0..<5 {
-                withAnimation(
-                    .easeInOut(duration: Double.random(in: 2...4))
-                    .repeatForever(autoreverses: true)
-                    .delay(Double(i) * 0.3)
-                ) {
-                    bookFloat[i] = CGFloat.random(in: -20...20)
+            startAnimations()
+        }
+    }
+    
+    private var libraryGradient: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.2, green: 0.15, blue: 0.1),
+                Color(red: 0.35, green: 0.25, blue: 0.15),
+                Color(red: 0.25, green: 0.18, blue: 0.1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+    
+    private var floatingBooks: some View {
+        ForEach(0..<5, id: \.self) { i in
+            let fontSize: CGFloat = 30 + CGFloat(i * 5)
+            let color = bookColors[i].opacity(0.7)
+            let rotation = Double(i * 15) - 30
+            let xOffset: CGFloat = CGFloat(i * 60) - 120
+            let yOffset: CGFloat = bookFloat[i] + CGFloat(i * 30) - 100
+            
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: fontSize))
+                .foregroundColor(color)
+                .rotationEffect(.degrees(rotation))
+                .offset(x: xOffset, y: yOffset)
+        }
+    }
+    
+    private var sparkles: some View {
+        ForEach(0..<12, id: \.self) { i in
+            let fontSize: CGFloat = CGFloat(8 + i % 4 * 4)
+            let opacity: Double = sparkle && i % 2 == 0 ? 1 : 0.3
+            
+            Image(systemName: "sparkle")
+                .font(.system(size: fontSize))
+                .foregroundColor(.yellow)
+                .opacity(opacity)
+                .offset(x: sparkleXOffsets[i], y: sparkleYOffsets[i])
+        }
+    }
+    
+    private var bookshelf: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 4) {
+                ForEach(0..<12, id: \.self) { i in
+                    let color = shelfColors[i % 6].opacity(0.8)
+                    let height: CGFloat = 60 + CGFloat(i % 4) * 10
+                    
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: 20, height: height)
                 }
             }
-            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
-                sparkle = true
+            .padding(.horizontal)
+            Rectangle()
+                .fill(Color.brown.opacity(0.9))
+                .frame(height: 20)
+        }
+    }
+    
+    private func startAnimations() {
+        for i in 0..<5 {
+            withAnimation(
+                .easeInOut(duration: Double.random(in: 2...4))
+                .repeatForever(autoreverses: true)
+                .delay(Double(i) * 0.3)
+            ) {
+                bookFloat[i] = CGFloat.random(in: -20...20)
             }
+        }
+        withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+            sparkle = true
         }
     }
 }

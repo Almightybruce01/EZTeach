@@ -301,6 +301,11 @@ struct CreateStudentView: View {
     @State private var errorMessage = ""
     @State private var showDuplicateWarning = false
     @State private var existingStudent: Student?
+
+    // Cap enforcement
+    @State private var showCapReached = false
+    @State private var capCount = 0
+    @State private var capLimit = 200
     
     private let db = Firestore.firestore()
     
@@ -406,6 +411,14 @@ struct CreateStudentView: View {
                     Text("A student with similar information already exists. Are you sure you want to create a new record?")
                 }
             }
+            .sheet(isPresented: $showCapReached) {
+                StudentCapReachedSheet(
+                    currentCount: capCount,
+                    cap: capLimit,
+                    schoolId: schoolId,
+                    onUpgraded: { newCap in capLimit = newCap }
+                )
+            }
         }
     }
     
@@ -451,6 +464,18 @@ struct CreateStudentView: View {
         errorMessage = ""
         Task {
             do {
+                // Check student cap before creating
+                let capCheck = try await FirestoreService.shared.checkStudentCap(schoolId: schoolId)
+                if !capCheck.allowed {
+                    await MainActor.run {
+                        capCount = capCheck.count
+                        capLimit = capCheck.cap
+                        showCapReached = true
+                        isLoading = false
+                    }
+                    return
+                }
+
                 let student = try await FirestoreService.shared.createStudent(
                     firstName: firstName,
                     middleName: middleName,
@@ -461,6 +486,9 @@ struct CreateStudentView: View {
                     notes: notes,
                     email: email.trimmingCharacters(in: .whitespaces).isEmpty ? nil : email
                 )
+                // Increment counter
+                try? await FirestoreService.shared.adjustStudentCount(schoolId: schoolId, delta: 1)
+
                 await MainActor.run {
                     onCreated(student)
                     dismiss()

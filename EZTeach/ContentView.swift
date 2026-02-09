@@ -243,17 +243,34 @@ struct ContentView: View {
     private func announcementCard(_ ann: Announcement) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
-                // Icon
+                // Role-colored icon
                 Circle()
-                    .fill(EZTeachColors.navy.opacity(0.1))
+                    .fill(ann.roleColor.opacity(0.12))
                     .frame(width: 36, height: 36)
                     .overlay(
-                        Image(systemName: "bell.fill")
+                        Image(systemName: ann.roleIcon)
                             .font(.system(size: 14))
-                            .foregroundColor(EZTeachColors.navy)
+                            .foregroundColor(ann.roleColor)
                     )
 
                 VStack(alignment: .leading, spacing: 4) {
+                    // Role badge + author name
+                    HStack(spacing: 6) {
+                        Text(ann.roleLabel)
+                            .font(.caption2.bold())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(ann.roleColor)
+                            .cornerRadius(4)
+
+                        if !ann.authorName.isEmpty {
+                            Text(ann.authorName)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
                     Text(ann.title)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
@@ -262,6 +279,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(3)
+
                     if let url = ann.attachmentUrl, let u = URL(string: url) {
                         AsyncImage(url: u) { img in img.resizable().scaledToFill() } placeholder: { Color.gray.opacity(0.2) }
                             .frame(maxWidth: 120, maxHeight: 80).clipped().cornerRadius(8)
@@ -283,6 +301,10 @@ struct ContentView: View {
         .padding(14)
         .background(Color(.systemBackground))
         .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(ann.roleColor.opacity(0.15), lineWidth: 1)
+        )
         .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
     }
 
@@ -364,13 +386,17 @@ struct ContentView: View {
                     return t1 > t2
                 }
                 announcements = sortedDocs.map { doc in
-                    Announcement(
+                    let d = doc.data()
+                    return Announcement(
                         id: doc.documentID,
                         schoolId: schoolId,
-                        title: doc["title"] as? String ?? "",
-                        body: doc["body"] as? String ?? "",
-                        attachmentUrl: doc["attachmentUrl"] as? String,
-                        isActive: true
+                        title: d["title"] as? String ?? "",
+                        body: d["body"] as? String ?? "",
+                        attachmentUrl: d["attachmentUrl"] as? String,
+                        isActive: true,
+                        authorRole: d["authorRole"] as? String ?? "school",
+                        authorName: d["authorName"] as? String ?? "",
+                        createdAt: (d["createdAt"] as? Timestamp)?.dateValue()
                     )
                 }
             }

@@ -53,6 +53,13 @@ final class FirestoreService {
             "subscriptionStatus": "inactive",
             "subscriptionActive": false,
             "subscriptionEndDate": NSNull(),
+            // Pricing / plan fields
+            "planType": "school",
+            "planTier": "S",
+            "priceMonthly": 129,
+            "studentCap": 200,
+            "studentCount": 0,
+            "isActive": true,
             "createdAt": Timestamp()
         ])
 
@@ -254,10 +261,10 @@ final class FirestoreService {
         let schoolName = schoolData["name"] as? String ?? "School"
         let schoolCity = schoolData["city"] as? String ?? ""
 
-        // Block join if school has not activated subscription — teachers/subs/parents cannot access until school subscribes
-        let subscriptionActive = schoolData["subscriptionActive"] as? Bool ?? false
-        if !subscriptionActive {
-            throw NSError(domain: "SchoolNotSubscribed", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school has not activated their account yet. Teachers, subs, and parents cannot join until the school administrator completes setup on our website. Please ask the school to manage their account at ezteach.org."])
+        // Block join only if the school account has been explicitly deactivated
+        let isActive = schoolData["isActive"] as? Bool ?? true
+        if !isActive {
+            throw NSError(domain: "SchoolDeactivated", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school account has been deactivated. Please contact the school administrator."])
         }
 
         let userRef = db.collection("users").document(uid)
@@ -277,9 +284,64 @@ final class FirestoreService {
 
         try await userRef.setData([
             "joinedSchools": joinedSchools,
-            "activeSchoolId": schoolId
+            "activeSchoolId": schoolId,
+            "schoolId": schoolId,
+            "schoolName": schoolName
         ], merge: true)
 
+        if userRole == "teacher" {
+            try await upsertTeacherProfile(userId: uid, schoolId: schoolId, firstName: firstName, lastName: lastName, fullName: fullName)
+        } else if userRole == "sub" {
+            try await upsertSubProfile(userId: uid, schoolId: schoolId, firstName: firstName, lastName: lastName)
+        }
+    }
+    
+    // =========================================================
+    // MARK: - JOIN SCHOOL BY ID (after selecting from list)
+    // =========================================================
+    func joinSchoolById(_ schoolId: String) async throws {
+        
+        guard let uid = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "AuthError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
+        }
+        
+        let schoolDoc = try await db.collection("schools").document(schoolId).getDocument()
+        
+        guard schoolDoc.exists, let schoolData = schoolDoc.data() else {
+            throw NSError(domain: "InvalidSchool", code: 0, userInfo: [NSLocalizedDescriptionKey: "School not found"])
+        }
+        
+        let schoolName = schoolData["name"] as? String ?? "School"
+        let schoolCity = schoolData["city"] as? String ?? ""
+        
+        // Block join only if the school account has been explicitly deactivated
+        let isActive = schoolData["isActive"] as? Bool ?? true
+        if !isActive {
+            throw NSError(domain: "SchoolDeactivated", code: 0, userInfo: [NSLocalizedDescriptionKey: "This school account has been deactivated. Please contact the school administrator."])
+        }
+        
+        let userRef = db.collection("users").document(uid)
+        let userSnap = try await userRef.getDocument()
+        let userData = userSnap.data() ?? [:]
+        
+        let userRole = userData["role"] as? String ?? ""
+        let firstName = userData["firstName"] as? String ?? ""
+        let lastName = userData["lastName"] as? String ?? ""
+        let fullName = userData["fullName"] as? String ?? "\(firstName) \(lastName)"
+        
+        var joinedSchools = userData["joinedSchools"] as? [[String: String]] ?? []
+        
+        if !joinedSchools.contains(where: { $0["id"] == schoolId }) {
+            joinedSchools.append(["id": schoolId, "name": schoolName, "city": schoolCity])
+        }
+        
+        try await userRef.setData([
+            "joinedSchools": joinedSchools,
+            "activeSchoolId": schoolId,
+            "schoolId": schoolId,
+            "schoolName": schoolName
+        ], merge: true)
+        
         if userRole == "teacher" {
             try await upsertTeacherProfile(userId: uid, schoolId: schoolId, firstName: firstName, lastName: lastName, fullName: fullName)
         } else if userRole == "sub" {
@@ -349,6 +411,13 @@ final class FirestoreService {
             "subscriptionStatus": "inactive",
             "subscriptionActive": false,
             "subscriptionEndDate": NSNull(),
+            // Pricing / plan fields
+            "planType": "school",
+            "planTier": "S",
+            "priceMonthly": 129,
+            "studentCap": 200,
+            "studentCount": 0,
+            "isActive": true,
             "createdAt": Timestamp()
         ])
 
@@ -786,5 +855,48 @@ final class FirestoreService {
         } catch {
             print("❌ Sync failed:", error.localizedDescription)
         }
+    }
+
+    // =========================================================
+    // MARK: - PLAN / PRICING HELPERS
+    // =========================================================
+
+    /// All school pricing tiers.
+    static let schoolTiers: [(tier: String, label: String, cap: Int, price: Int)] = [
+        ("S",   "Tier S  (0–200)",       200,   129),
+        ("M1",  "Tier M1 (201–500)",     500,   229),
+        ("M2",  "Tier M2 (501–1,200)",  1200,   379),
+        ("L",   "Tier L  (1,201–2,500)", 2500,   549),
+        ("XL",  "Tier XL (2,501–4,500)", 4500,   749),
+        ("ENT", "Enterprise (4,501–7,500)", 7500, 999),
+    ]
+
+    /// Check whether a school can add another student. Returns (allowed, currentCount, cap).
+    func checkStudentCap(schoolId: String) async throws -> (allowed: Bool, count: Int, cap: Int) {
+        let snap = try await db.collection("schools").document(schoolId).getDocument()
+        let data = snap.data() ?? [:]
+        let count = data["studentCount"] as? Int ?? 0
+        let cap   = data["studentCap"]   as? Int ?? 200
+        return (count < cap, count, cap)
+    }
+
+    /// Atomically increment or decrement `studentCount` on a school document.
+    func adjustStudentCount(schoolId: String, delta: Int) async throws {
+        try await db.collection("schools").document(schoolId).updateData([
+            "studentCount": FieldValue.increment(Int64(delta))
+        ])
+    }
+
+    /// Upgrade a school to a new tier. Updates planTier, priceMonthly, and studentCap.
+    func upgradeSchoolTier(schoolId: String, newTier: String) async throws {
+        guard let tier = Self.schoolTiers.first(where: { $0.tier == newTier }) else {
+            throw NSError(domain: "UpgradeTier", code: 0,
+                          userInfo: [NSLocalizedDescriptionKey: "Unknown tier: \(newTier)"])
+        }
+        try await db.collection("schools").document(schoolId).updateData([
+            "planTier": tier.tier,
+            "priceMonthly": tier.price,
+            "studentCap": tier.cap
+        ])
     }
 }

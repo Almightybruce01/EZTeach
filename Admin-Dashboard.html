@@ -128,20 +128,38 @@
 
     <!-- App pricing -->
     <section class="section">
-      <h2>App pricing (Stripe)</h2>
+      <h2>App pricing (Stripe) — Tiered by Student Cap</h2>
       <div class="tier-row">
         <div class="tier-box">
-          <h3>School monthly</h3>
-          <div class="price">$<span id="price-monthly">75</span>/mo</div>
-          <input type="text" id="edit-monthly" placeholder="75" data-key="priceMonthly">
+          <h3>Tier S (0–200)</h3>
+          <div class="price">$129/mo</div>
         </div>
         <div class="tier-box">
-          <h3>School yearly</h3>
-          <div class="price">$<span id="price-yearly">750</span>/yr</div>
-          <input type="text" id="edit-yearly" placeholder="750" data-key="priceYearly">
+          <h3>Tier M1 (201–500)</h3>
+          <div class="price">$229/mo</div>
+        </div>
+        <div class="tier-box">
+          <h3>Tier M2 (501–1,200)</h3>
+          <div class="price">$379/mo</div>
         </div>
       </div>
-      <p class="updated">When you change these, tell Cursor to update functions/index.js unit_amount (cents) and the app/website.</p>
+      <div class="tier-row">
+        <div class="tier-box">
+          <h3>Tier L (1,201–2,500)</h3>
+          <div class="price">$549/mo</div>
+        </div>
+        <div class="tier-box">
+          <h3>Tier XL (2,501–4,500)</h3>
+          <div class="price">$749/mo</div>
+        </div>
+        <div class="tier-box">
+          <h3>Enterprise (4,501–7,500)</h3>
+          <div class="price">$999/mo</div>
+        </div>
+      </div>
+      <p class="updated" style="margin-top:16px"><strong>District annual:</strong> $12/student (3k–7.5k) | $11 (7.5k–15k) | $10 (15k–30k) | $9 (30k–60k) | $8 (60k+) — or $2,750/school/yr (up to 750 students).</p>
+      <p class="updated"><strong>Stripe discount codes:</strong> EZTEACH25 (25% off) | EZTEACH100 (100% off). Deploy setupStripeCoupons function then call it once to create in Stripe.</p>
+      <p class="updated">All plans include every feature. Tiers only differ by student cap. Enforcement: once at cap, "Add Student" is disabled + upgrade modal appears.</p>
     </section>
 
     <!-- Cursor AI Helper -->
@@ -150,7 +168,7 @@
       <p class="notes" style="margin-bottom:16px">Open Cursor with /Users/brianbruce/Desktop/EZTeach. Copy a prompt → paste in Cursor chat → AI will make the changes.</p>
       <div class="prompt-box">
         <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
-        <pre data-prompt="Upgrade EZTeach pricing to $[MONTHLY]/month and $[YEARLY]/year everywhere: functions/index.js (unit_amount in cents: monthly*100, yearly*100), EZTeach/SubscriptionView.swift, ezteach-website/index.html, AccountView.swift. Update display and Stripe checkout.">Upgrade pricing (uses your values above)</pre>
+        <pre data-prompt="EZTeach uses tiered pricing (S $129, M1 $229, M2 $379, L $549, XL $749, ENT $999). All tiers are defined in FirestoreService.schoolTiers, functions/index.js SCHOOL_TIERS, and the website. To change pricing, update all three locations.">View tier pricing locations</pre>
       </div>
       <div class="prompt-box">
         <button class="btn btn-sm copy-btn" onclick="copyPrompt(this)">Copy</button>
@@ -256,7 +274,7 @@ git add -A && git commit -m "Update" && git push</pre>
     ];
 
     const PROMPTS = [
-      "Upgrade EZTeach pricing to $[MONTHLY]/month and $[YEARLY]/year everywhere: functions/index.js (unit_amount in cents), EZTeach/SubscriptionView.swift, ezteach-website/index.html, and AccountView.swift.",
+      "EZTeach uses tiered pricing (S $129, M1 $229, M2 $379, L $549, XL $749, ENT $999). Tiers defined in FirestoreService.schoolTiers, functions/index.js SCHOOL_TIERS, and ezteach-website/index.html.",
       "Add a new promo code to my EZTeach app. Create Firestore document in promoCodes collection. I'll provide the code and discount.",
       "Deploy my EZTeach Firebase functions: cd /Users/brianbruce/Desktop/EZTeach && firebase deploy --only functions",
       "Fix any build errors in my EZTeach Xcode project at /Users/brianbruce/Desktop/EZTeach",
@@ -265,13 +283,8 @@ git add -A && git commit -m "Update" && git push</pre>
 
     function load() {
       const data = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
-      const monthly = parseFloat(data.priceMonthly || 75);
-      const yearly = parseFloat(data.priceYearly || 750);
-
-      document.getElementById('price-monthly').textContent = monthly;
-      document.getElementById('price-yearly').textContent = yearly;
-      document.getElementById('edit-monthly').value = monthly;
-      document.getElementById('edit-yearly').value = yearly;
+      // Tiered pricing — no longer editable per-field; tiers are fixed in code
+      // Old single-price fields removed; tiers shown statically above
       document.getElementById('upgrade-log').value = data.upgradeLog || '';
 
       // Totals: Apple $99/yr (~$8.25/mo) + Domain ~$12/yr (~$1/mo)
@@ -308,16 +321,7 @@ git add -A && git commit -m "Update" && git push</pre>
       }).join('');
 
       // Event listeners
-      document.querySelectorAll('#edit-monthly, #edit-yearly').forEach(el => {
-        el.addEventListener('change', function() {
-          const key = this.dataset.key;
-          const val = this.value || (key === 'priceMonthly' ? '75' : '750');
-          const d = JSON.parse(localStorage.getItem('ezteach_admin') || '{}');
-          d[key] = val;
-          localStorage.setItem('ezteach_admin', JSON.stringify(d));
-          document.getElementById('price-' + (key === 'priceMonthly' ? 'monthly' : 'yearly')).textContent = val;
-        });
-      });
+      // Tier pricing is now fixed in code — no per-field editing needed
       document.querySelectorAll('.notes-edit[data-key]').forEach(el => {
         el.addEventListener('blur', () => saveNote(el.dataset.key, el.value));
       });

@@ -390,6 +390,25 @@ struct ReadingCard: View {
                 .font(.subheadline)
                 .foregroundColor(EZTeachColors.textMutedLight)
                 .lineLimit(3)
+            
+            // Page count indicator
+            HStack(spacing: 6) {
+                Image(systemName: "book.pages")
+                    .font(.caption2)
+                    .foregroundColor(genreColor)
+                Text("\(item.chapters.count) pages")
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(genreColor)
+                
+                Spacer()
+                
+                Text("Tap to read")
+                    .font(.caption2)
+                    .foregroundColor(EZTeachColors.textMutedLight)
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundColor(EZTeachColors.textMutedLight)
+            }
             }
             Spacer(minLength: 0)
         }

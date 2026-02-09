@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
 import PhotosUI
@@ -17,6 +18,8 @@ struct AddAnnouncementView: View {
     @Environment(\.dismiss) private var dismiss
 
     let schoolId: String
+    let userRole: String
+    let userName: String
 
     @State private var title = ""
     @State private var message = ""
@@ -29,6 +32,12 @@ struct AddAnnouncementView: View {
 
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
+
+    init(schoolId: String, userRole: String = "school", userName: String = "") {
+        self.schoolId = schoolId
+        self.userRole = userRole
+        self.userName = userName
+    }
 
     var body: some View {
         NavigationStack {
@@ -76,6 +85,28 @@ struct AddAnnouncementView: View {
                     }
                 }
 
+                // Preview of how it will look
+                Section("Preview") {
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(previewColor.opacity(0.15))
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Image(systemName: previewIcon)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(previewColor)
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(previewRoleLabel)
+                                .font(.caption2.bold())
+                                .foregroundColor(previewColor)
+                            Text(userName.isEmpty ? "You" : userName)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
                 Button {
                     post()
                 } label: {
@@ -83,7 +114,7 @@ struct AddAnnouncementView: View {
                         ProgressView()
                             .frame(maxWidth: .infinity)
                     } else {
-                        Text("Post")
+                        Text("Post Announcement")
                     }
                 }
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
@@ -118,6 +149,34 @@ struct AddAnnouncementView: View {
                 case .failure: break
                 }
             }
+        }
+    }
+
+    // MARK: - Preview helpers
+    private var previewColor: Color {
+        switch userRole {
+        case "school":   return Color(red: 0.15, green: 0.22, blue: 0.45)
+        case "teacher":  return Color(red: 0.13, green: 0.59, blue: 0.53)
+        case "district": return Color(red: 0.55, green: 0.22, blue: 0.67)
+        default:         return Color(red: 0.45, green: 0.45, blue: 0.50)
+        }
+    }
+
+    private var previewIcon: String {
+        switch userRole {
+        case "school":   return "megaphone.fill"
+        case "teacher":  return "person.fill"
+        case "district": return "building.columns.fill"
+        default:         return "bell.fill"
+        }
+    }
+
+    private var previewRoleLabel: String {
+        switch userRole {
+        case "school":   return "Principal"
+        case "teacher":  return "Teacher"
+        case "district": return "District"
+        default:         return "Staff"
         }
     }
 
@@ -160,11 +219,23 @@ struct AddAnnouncementView: View {
 
     private func post() {
         isPosting = true
+
+        // Resolve the author name if not provided
+        let resolvedName: String
+        if !userName.isEmpty {
+            resolvedName = userName
+        } else {
+            resolvedName = Auth.auth().currentUser?.displayName ?? "Staff"
+        }
+
         var data: [String: Any] = [
             "schoolId": schoolId,
             "title": title.trimmingCharacters(in: .whitespacesAndNewlines),
             "body": message.trimmingCharacters(in: .whitespacesAndNewlines),
             "isActive": true,
+            "authorRole": userRole,
+            "authorName": resolvedName,
+            "authorUid": Auth.auth().currentUser?.uid ?? "",
             "createdAt": Timestamp()
         ]
         if let url = attachmentUrl {

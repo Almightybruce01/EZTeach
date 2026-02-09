@@ -32,45 +32,116 @@ struct EZLearningGamesHubView: View {
             
             ScrollView {
                 VStack(spacing: 28) {
-                    VStack(spacing: 8) {
-                        Text("EZLearning")
-                            .font(.system(size: 34, weight: .black, design: .rounded))
-                            .foregroundStyle(EZTeachColors.gamesAccentGradient)
-                            .shadow(color: EZTeachColors.brightTeal.opacity(0.4), radius: 12)
+                    VStack(spacing: 12) {
+                        // Animated icon row
+                        HStack(spacing: 16) {
+                            ForEach(["gamecontroller.fill", "star.fill", "trophy.fill"], id: \.self) { icon in
+                                Image(systemName: icon)
+                                    .font(.title2)
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [EZTeachColors.brightTeal, EZTeachColors.softPurple],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            }
+                        }
+                        .padding(.top, 8)
                         
-                        Text("LEVEL UP YOUR LEARNING")
-                            .font(.system(size: 12, weight: .black, design: .monospaced))
-                            .tracking(4)
-                            .foregroundColor(EZTeachColors.textMutedLight)
-                        
-                        if gradeLevel > 0 {
-                            Text("Suggested for Grade \(GradeUtils.label(gradeLevel))")
-                                .font(.caption)
+                        // Main title with enhanced styling
+                        VStack(spacing: 6) {
+                            Text("EZLearning")
+                                .font(.system(size: 38, weight: .black, design: .rounded))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [EZTeachColors.brightTeal, EZTeachColors.softPurple, EZTeachColors.tronPink],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .shadow(color: EZTeachColors.brightTeal.opacity(0.3), radius: 12)
+                            
+                            Text("GAMES")
+                                .font(.system(size: 16, weight: .black, design: .monospaced))
+                                .tracking(8)
                                 .foregroundColor(EZTeachColors.textMutedLight)
                         }
                         
+                        Text("LEVEL UP YOUR LEARNING")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .tracking(3)
+                            .foregroundColor(EZTeachColors.textMutedLight.opacity(0.8))
+                        
+                        if gradeLevel > 0 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "graduationcap.fill")
+                                    .font(.caption)
+                                Text("Grade \(GradeUtils.label(gradeLevel))")
+                                    .font(.caption.bold())
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [EZTeachColors.brightTeal, EZTeachColors.softPurple],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                        }
+                        
+                        // Enhanced search bar
                         HStack(spacing: 12) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(EZTeachColors.brightTeal)
+                            ZStack {
+                                Circle()
+                                    .fill(EZTeachColors.brightTeal.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(EZTeachColors.brightTeal)
+                            }
+                            
                             TextField("Search games by name...", text: $searchText)
+                                .font(.system(size: 15))
                                 .foregroundColor(EZTeachColors.textDark)
                                 .autocorrectionDisabled()
+                            
+                            if !searchText.isEmpty {
+                                Button {
+                                    searchText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray.opacity(0.5))
+                                }
+                            }
                         }
-                        .padding(14)
+                        .padding(12)
                         .background(
-                            RoundedRectangle(cornerRadius: 14)
+                            RoundedRectangle(cornerRadius: 16)
                                 .fill(EZTeachColors.cardWhite)
-                                .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
+                                .shadow(color: EZTeachColors.brightTeal.opacity(0.15), radius: 10, y: 5)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(EZTeachColors.brightTeal.opacity(0.3), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [EZTeachColors.brightTeal.opacity(0.4), EZTeachColors.softPurple.opacity(0.2)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1.5
+                                )
                         )
                         .padding(.horizontal)
                         
                         GameAudioSettingsBar()
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 16)
                     
                     if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                         GameSearchResultsView(
@@ -370,39 +441,108 @@ struct GameItem: Identifiable, Hashable {
 
 struct TronCategoryCard: View {
     let category: GameCategory
+    @State private var isHovered = false
+    @State private var iconPulse: CGFloat = 1.0
     
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 16) {
+            // Icon container with glow effect
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(category.neonColor.opacity(0.15))
-                    .frame(width: 56, height: 56)
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(category.neonColor.opacity(0.4), lineWidth: 1.5)
-                    .frame(width: 56, height: 56)
+                // Outer glow
+                Circle()
+                    .fill(category.neonColor.opacity(0.2))
+                    .frame(width: 70, height: 70)
+                    .blur(radius: 8)
                 
-                Image(systemName: category.icon)
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundColor(category.neonColor)
+                // Icon background with gradient
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(
+                            LinearGradient(
+                                colors: [category.neonColor.opacity(0.25), category.neonColor.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 64, height: 64)
+                    
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(
+                            LinearGradient(
+                                colors: [category.neonColor.opacity(0.6), category.neonColor.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
+                        )
+                        .frame(width: 64, height: 64)
+                    
+                    Image(systemName: category.icon)
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [category.neonColor, category.neonColor.opacity(0.7)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .scaleEffect(iconPulse)
+                        .shadow(color: category.neonColor.opacity(0.5), radius: 4)
+                }
             }
             
-            Text(category.rawValue)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(EZTeachColors.textDark)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
+            // Category name with enhanced styling
+            VStack(spacing: 4) {
+                Text(category.rawValue)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(EZTeachColors.textDark)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                
+                // Game count badge
+                Text("\(category.games.count) games")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(category.neonColor.opacity(0.8))
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .padding(.vertical, 22)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(EZTeachColors.cardWhite)
-                .shadow(color: category.neonColor.opacity(0.25), radius: 12, y: 6)
+            ZStack {
+                // Base card
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(EZTeachColors.cardWhite)
+                
+                // Shine effect
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.5), .clear, .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            .shadow(color: category.neonColor.opacity(isHovered ? 0.35 : 0.2), radius: isHovered ? 16 : 10, y: isHovered ? 8 : 5)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(category.neonColor.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(
+                    LinearGradient(
+                        colors: [category.neonColor.opacity(0.5), category.neonColor.opacity(0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
         )
+        .scaleEffect(isHovered ? 1.02 : 1.0)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                iconPulse = 1.08
+                isHovered = true
+            }
+        }
     }
 }
 
@@ -481,16 +621,37 @@ struct GameDestinationView: View {
     var body: some View {
         if game.playable {
             Group {
-                if game.id.hasPrefix("math_") {
+                // Math games - each with unique UI
+                if game.id == "math_addition" {
                     MathQuizGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "math_subtraction" {
+                    MathSubtractionGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "math_multiplication" || game.id == "math_times_table" {
+                    MathMultiplicationGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "math_division" {
+                    MathDivisionGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "math_geometry" {
+                    MathGeometryGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "math_fractions" {
+                    MathFractionsGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "math_number_line" || game.id == "math_word_problems" || game.id == "math_maze" {
+                    MathQuizGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id.hasPrefix("math_") {
+                    MathQuizGameView(gameId: game.id, gameTitle: game.name)
+                    
+                // Reading games
                 } else if game.id == "reading_by_level" {
                     ReadingsByLevelView(gradeLevel: gradeLevel)
                 } else if game.id == "reading_sentence" {
                     SentenceBuilderGameView(gameId: game.id, gameTitle: game.name)
                 } else if game.id == "reading_run_quiz" {
                     RunAndQuizGameView(gameId: game.id, gameTitle: game.name)
+                } else if game.id == "reading_reading_race" {
+                    RacingGameView(gameId: game.id, gameTitle: game.name)
                 } else if game.id.hasPrefix("reading_") {
                     ReadingWordGameView(gameId: game.id, gameTitle: game.name)
+                    
+                // Other categories
                 } else if game.id.hasPrefix("science_") {
                     ScienceMatchGameView(gameId: game.id, gameTitle: game.name)
                 } else if game.id.hasPrefix("ss_") {
@@ -527,63 +688,137 @@ struct TronGameRow: View {
     let color: Color
     var gradeLevel: Int = 0
     var isRecommended: Bool = false
+    @State private var isPressed = false
     
     var body: some View {
         NavigationLink {
             GameDestinationView(game: game, gradeLevel: gradeLevel)
         } label: {
-            HStack(spacing: 18) {
-                Text("\(rank)")
-                    .font(.system(size: 20, weight: .black, design: .monospaced))
-                    .foregroundColor(color)
-                    .frame(width: 40, height: 40)
-                    .background(color.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(color.opacity(0.4), lineWidth: 1)
-                    )
+            HStack(spacing: 16) {
+                // Rank badge with enhanced design
+                ZStack {
+                    // Glow
+                    Circle()
+                        .fill(color.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    
+                    // Badge
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(
+                                LinearGradient(
+                                    colors: [color.opacity(0.25), color.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 44, height: 44)
+                        
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(color.opacity(0.4), lineWidth: 1.5)
+                            .frame(width: 44, height: 44)
+                        
+                        Text("\(rank)")
+                            .font(.system(size: 18, weight: .black, design: .rounded))
+                            .foregroundColor(color)
+                    }
+                }
                 
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
+                // Game info
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
                         Text(game.name)
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
                             .foregroundColor(EZTeachColors.textDark)
+                        
                         if game.intricateStars > 0 {
                             HStack(spacing: 2) {
                                 ForEach(0..<game.intricateStars, id: \.self) { _ in
                                     Image(systemName: "star.fill")
-                                        .font(.system(size: 10))
+                                        .font(.system(size: 9))
                                         .foregroundColor(EZTeachColors.warmYellow)
                                 }
                             }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(EZTeachColors.warmYellow.opacity(0.15))
+                            .cornerRadius(6)
                         }
                     }
-                    if isRecommended {
-                        Text("For your grade")
+                    
+                    HStack(spacing: 6) {
+                        if isRecommended {
+                            HStack(spacing: 3) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 10))
+                                Text("For your grade")
+                            }
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(color)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(color)
+                            .cornerRadius(8)
+                        }
+                        
+                        if game.playable {
+                            Text("Ready to play")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.green)
+                        }
                     }
                 }
                 
                 Spacer()
                 
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(color)
+                // Play button with enhanced design
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.1))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(color)
+                }
             }
-            .padding(18)
+            .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(EZTeachColors.cardWhite)
-                    .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(EZTeachColors.cardWhite)
+                    
+                    // Shine effect
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(
+                            LinearGradient(
+                                colors: [.white.opacity(0.6), .clear, .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                .shadow(color: color.opacity(0.15), radius: isPressed ? 4 : 10, y: isPressed ? 2 : 5)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(color.opacity(0.3), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(
+                        LinearGradient(
+                            colors: [color.opacity(0.4), color.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in withAnimation(.easeOut(duration: 0.1)) { isPressed = true } }
+                .onEnded { _ in withAnimation(.easeOut(duration: 0.1)) { isPressed = false } }
+        )
     }
 }
 

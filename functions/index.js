@@ -41,50 +41,52 @@ const SUPPORT_EMAIL = functions.config().app?.support_email || 'ezteach0+support
 const FROM_EMAIL = 'ezteach0@gmail.com'; // Must be verified in SendGrid (simplest - no domain forwarding needed)
 
 // =========================================================
+// STRIPE PRODUCT + PRICE IDS (created via setup-stripe-products.js)
+// =========================================================
+const STRIPE_PRICES = {
+  S:   { productId: 'prod_TwHgFHUN60Wwq0', monthlyPriceId: 'price_1SyP7JFOg1Vq3X9Hap8wHqma', yearlyPriceId: 'price_1SyP7JFOg1Vq3X9HdrsB1EZJ', monthlyAmount: 12900, yearlyAmount: 129000, cap: 200, label: 'Tier S — 0–200 Students' },
+  M1:  { productId: 'prod_TwHg08l3Zfh8Z0', monthlyPriceId: 'price_1SyP7JFOg1Vq3X9Hg1odwtkr', yearlyPriceId: 'price_1SyP7JFOg1Vq3X9HFkelThTZ', monthlyAmount: 22900, yearlyAmount: 229000, cap: 500, label: 'Tier M1 — 201–500 Students' },
+  M2:  { productId: 'prod_TwHgmS1ijdE3MB', monthlyPriceId: 'price_1SyP7KFOg1Vq3X9HNu1IUWQS', yearlyPriceId: 'price_1SyP7KFOg1Vq3X9HcCqjm6Qv', monthlyAmount: 37900, yearlyAmount: 379000, cap: 1200, label: 'Tier M2 — 501–1,200 Students' },
+  L:   { productId: 'prod_TwHgdE35MZI7gV', monthlyPriceId: 'price_1SyP7KFOg1Vq3X9HZVs191mz', yearlyPriceId: 'price_1SyP7LFOg1Vq3X9HUNLqwkHH', monthlyAmount: 54900, yearlyAmount: 549000, cap: 2500, label: 'Tier L — 1,201–2,500 Students' },
+  XL:  { productId: 'prod_TwHg170sLcCuLF', monthlyPriceId: 'price_1SyP7LFOg1Vq3X9H0QLKJh6w', yearlyPriceId: 'price_1SyP7LFOg1Vq3X9HUIMuIsFd', monthlyAmount: 74900, yearlyAmount: 749000, cap: 4500, label: 'Tier XL — 2,501–4,500 Students' },
+  ENT: { productId: 'prod_TwHgk848BL4WH7', monthlyPriceId: 'price_1SyP7LFOg1Vq3X9H3LUnz5e5', yearlyPriceId: 'price_1SyP7MFOg1Vq3X9Hu9a3GIg0', monthlyAmount: 99900, yearlyAmount: 999000, cap: 7500, label: 'Enterprise — 4,501–7,500 Students' },
+};
+
+const DISTRICT_PRICES = {
+  perSchool:     { productId: 'prod_TwHg0GpI7gU7vH', priceId: 'price_1SyP7MFOg1Vq3X9HcjTuL6X8' },
+  district_3k:   { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9H15EcKfBL', perStudent: 12 },
+  district_7k:   { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HmqKmc1QC', perStudent: 11 },
+  district_15k:  { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HBcSqVNxo', perStudent: 10 },
+  district_30k:  { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HGf6gqRDq', perStudent: 9  },
+  district_60k:  { productId: 'prod_TwHgVBAGnOtPBU', priceId: 'price_1SyP7NFOg1Vq3X9HELvYfYlG', perStudent: 8  },
+};
+
+// =========================================================
 // SUBSCRIPTION MANAGEMENT
 // =========================================================
 
 /**
- * Create a Stripe checkout session for school subscription
+ * Create a Stripe checkout session for school subscription.
+ * Uses pre-created Stripe Price IDs (proper products in Stripe dashboard).
+ * Supports monthly or yearly billing.
  */
 exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  const { schoolId, plan, successUrl, cancelUrl, promoCode } = data;
+  const { schoolId, plan, successUrl, cancelUrl, couponCode } = data;
   const uid = context.auth.uid;
 
   try {
     const userDoc = await db.collection('users').doc(uid).get();
     const userData = userDoc.data();
     if (!userData || !userData.email) {
-      throw new functions.https.HttpsError('failed-precondition', 'User account missing email. Please add email in account settings.');
-    }
-
-    // Validate promo code (yearly only, one use per school)
-    let discountPercent = 0;
-    if (plan === 'yearly' && promoCode) {
-      const code = String(promoCode).toUpperCase().trim();
-      const promoDoc = await db.collection('promoCodes').doc(code).get();
-      if (promoDoc.exists) {
-        const d = promoDoc.data();
-        if (d.isActive && d.yearlyOnly) {
-          const alreadyUsed = await db.collection('promoCodeUsage')
-            .where('code', '==', code)
-            .where('schoolId', '==', schoolId)
-            .limit(1)
-            .get();
-          if (alreadyUsed.empty) {
-            discountPercent = d.discountPercent || 0;
-          }
-        }
-      }
+      throw new functions.https.HttpsError('failed-precondition', 'User account missing email.');
     }
 
     // Get or create Stripe customer
     let customerId = userData.stripeCustomerId;
-
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: userData.email,
@@ -94,42 +96,43 @@ exports.createCheckoutSession = functions.runWith(runtimeOpts).https.onCall(asyn
       await db.collection('users').doc(uid).update({ stripeCustomerId: customerId });
     }
 
-    // Create checkout session ($75/mo or $750/yr)
-    // Uses product_data so no pre-created Stripe products needed
-    const isYearly = plan === 'yearly';
-    const lineItem = isYearly
-      ? {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: 'EZTeach School - Yearly' },
-            unit_amount: 75000, // $750
-            recurring: { interval: 'year' },
-          },
-          quantity: 1,
-        }
-      : {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: 'EZTeach School - Monthly' },
-            unit_amount: 7500, // $75
-            recurring: { interval: 'month' },
-          },
-          quantity: 1,
-        };
+    // Look up the school's current tier
+    const schoolDoc = await db.collection('schools').doc(schoolId).get();
+    const schoolData = schoolDoc.exists ? schoolDoc.data() : {};
+    const planTier = schoolData.planTier || 'S';
+    const tierInfo = STRIPE_PRICES[planTier] || STRIPE_PRICES['S'];
 
-    const session = await stripe.checkout.sessions.create({
+    const isYearly = plan === 'yearly';
+    const priceId = isYearly ? tierInfo.yearlyPriceId : tierInfo.monthlyPriceId;
+
+    const sessionParams = {
       customer: customerId,
       payment_method_types: ['card'],
-      line_items: [lineItem],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: { schoolId, userId: uid, promoCode: promoCode || '' },
+      success_url: successUrl || 'https://ezteach.org/subscription-success.html',
+      cancel_url: cancelUrl || 'https://ezteach.org/subscription-cancel.html',
+      metadata: { schoolId, userId: uid, tier: planTier, billing: isYearly ? 'yearly' : 'monthly' },
       subscription_data: {
-        metadata: { schoolId, userId: uid },
+        metadata: { schoolId, userId: uid, tier: planTier },
       },
-    });
+      allow_promotion_codes: true,
+    };
 
+    // Apply specific coupon if provided
+    if (couponCode) {
+      try {
+        const promoCodes = await stripe.promotionCodes.list({ code: couponCode, active: true, limit: 1 });
+        if (promoCodes.data.length > 0) {
+          sessionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
+          delete sessionParams.allow_promotion_codes; // can't use both
+        }
+      } catch (_) {
+        console.warn('Invalid coupon code:', couponCode);
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
     return { sessionId: session.id, url: session.url };
   } catch (error) {
     console.error('Error creating checkout session:', error);
@@ -326,13 +329,26 @@ async function handleSubscriptionCreated(session) {
   const endDate = new Date();
   endDate.setMonth(endDate.getMonth() + interval);
 
-  await db.collection('schools').doc(schoolId).update({
+  const updateData = {
     subscriptionActive: true,
+    isActive: true,
     subscriptionStartDate: admin.firestore.Timestamp.now(),
     subscriptionEndDate: admin.firestore.Timestamp.fromDate(endDate),
     stripeSubscriptionId: session.subscription,
     stripeCustomerId: session.customer,
-  });
+  };
+  // Persist tier from metadata if present
+  const tier = session.metadata?.tier;
+  if (tier) {
+    const TIERS = { S: {cap:200,price:129}, M1: {cap:500,price:229}, M2: {cap:1200,price:379}, L: {cap:2500,price:549}, XL: {cap:4500,price:749}, ENT: {cap:7500,price:999} };
+    const t = TIERS[tier];
+    if (t) {
+      updateData.planTier = tier;
+      updateData.priceMonthly = t.price;
+      updateData.studentCap = t.cap;
+    }
+  }
+  await db.collection('schools').doc(schoolId).update(updateData);
 
   await db.collection('users').doc(userId).update({
     subscriptionActive: true,
@@ -477,18 +493,33 @@ exports.createDistrictCheckout = functions.runWith(runtimeOpts).https.onCall(asy
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  const { districtId, numberOfSchools, successUrl, cancelUrl } = data;
+  const { districtId, pricingMode, totalStudents, numberOfSchools, successUrl, cancelUrl, couponCode } = data;
   const uid = context.auth.uid;
 
   try {
-    // Calculate pricing ($75 base; volume: 72/68/64/60)
-    let pricePerSchool = 75;
-    if (numberOfSchools >= 31) pricePerSchool = 60;
-    else if (numberOfSchools >= 16) pricePerSchool = 64;
-    else if (numberOfSchools >= 6) pricePerSchool = 68;
-    else if (numberOfSchools >= 1) pricePerSchool = 72;
+    let lineItems = [];
 
-    const totalAmount = pricePerSchool * numberOfSchools * 100; // in cents
+    if (pricingMode === 'perStudent') {
+      // Per-student/year pricing using real Stripe Price IDs
+      const students = parseInt(totalStudents, 10) || 0;
+      let districtTierKey = 'district_3k';
+      if (students > 60000) districtTierKey = 'district_60k';
+      else if (students > 30000) districtTierKey = 'district_30k';
+      else if (students > 15000) districtTierKey = 'district_15k';
+      else if (students > 7500) districtTierKey = 'district_7k';
+      else districtTierKey = 'district_3k';
+
+      const dPrice = DISTRICT_PRICES[districtTierKey];
+      if (!dPrice) throw new functions.https.HttpsError('invalid-argument', 'Invalid student count for district pricing');
+
+      // quantity = number of students; price = per-student/year
+      lineItems = [{ price: dPrice.priceId, quantity: students }];
+    } else {
+      // Per-school/year: $2,750/school/year
+      const schools = parseInt(numberOfSchools, 10) || 1;
+      const dPrice = DISTRICT_PRICES.perSchool;
+      lineItems = [{ price: dPrice.priceId, quantity: schools }];
+    }
 
     // Get or create Stripe customer
     const userDoc = await db.collection('users').doc(uid).get();
@@ -504,43 +535,40 @@ exports.createDistrictCheckout = functions.runWith(runtimeOpts).https.onCall(asy
       await db.collection('users').doc(uid).update({ stripeCustomerId: customerId });
     }
 
-    // Create checkout session with custom amount
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams = {
       customer: customerId,
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `EZTeach District Subscription (${numberOfSchools} schools)`,
-              description: `$${pricePerSchool}/school/month`,
-            },
-            unit_amount: totalAmount,
-            recurring: {
-              interval: 'month',
-            },
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems,
       mode: 'subscription',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: successUrl || 'https://ezteach.org/subscription-success.html',
+      cancel_url: cancelUrl || 'https://ezteach.org/subscription-cancel.html',
       metadata: {
         districtId,
         userId: uid,
-        numberOfSchools: numberOfSchools.toString(),
-        pricePerSchool: pricePerSchool.toString(),
+        pricingMode: pricingMode || 'perSchool',
+        totalStudents: (totalStudents || 0).toString(),
+        numberOfSchools: (numberOfSchools || 0).toString(),
       },
       subscription_data: {
-        metadata: {
-          districtId,
-          userId: uid,
-        },
+        metadata: { districtId, userId: uid },
       },
-    });
+      allow_promotion_codes: true,
+    };
 
+    // Apply specific coupon if provided
+    if (couponCode) {
+      try {
+        const promoCodes = await stripe.promotionCodes.list({ code: couponCode, active: true, limit: 1 });
+        if (promoCodes.data.length > 0) {
+          sessionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
+          delete sessionParams.allow_promotion_codes;
+        }
+      } catch (_) {
+        console.warn('Invalid coupon for district checkout:', couponCode);
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
     return { sessionId: session.id, url: session.url };
   } catch (error) {
     console.error('Error creating district checkout:', error);
@@ -1988,6 +2016,20 @@ exports.createStudent = functions.runWith(runtimeOpts).https.onCall(async (data,
     throw new functions.https.HttpsError('permission-denied', 'Only school staff or district admins can create students');
   }
 
+  // ---- Cap enforcement ----
+  const schoolDoc = await db.collection('schools').doc(schoolId).get();
+  if (schoolDoc.exists) {
+    const sd = schoolDoc.data();
+    const studentCount = sd.studentCount || 0;
+    const studentCap   = sd.studentCap   || 200;
+    if (studentCount >= studentCap) {
+      throw new functions.https.HttpsError(
+        'resource-exhausted',
+        `Student limit reached (${studentCount}/${studentCap}). Upgrade your plan to add more students.`
+      );
+    }
+  }
+
   const firstName = (data.firstName || '').trim();
   const lastName = (data.lastName || '').trim();
   const middleName = (data.middleName || '').trim();
@@ -2074,6 +2116,11 @@ exports.createStudent = functions.runWith(runtimeOpts).https.onCall(async (data,
   if (email) studentData.email = email;
 
   await studentRef.set(studentData);
+
+  // Increment the school's studentCount atomically
+  await db.collection('schools').doc(schoolId).update({
+    studentCount: admin.firestore.FieldValue.increment(1)
+  });
 
   const snap = await studentRef.get();
   const d = snap.data();
@@ -2379,3 +2426,223 @@ exports.cleanupOrphanedData = functions.runWith(runtimeOpts).pubsub
     console.log('Orphaned data cleanup complete');
     return null;
   });
+
+// =========================================================
+// STUDENT COUNT TRIGGERS (belt-and-suspenders — runs in addition to
+// the increment inside createStudent to catch direct Firestore writes)
+// =========================================================
+
+/**
+ * When a student document is deleted, decrement the school's studentCount.
+ */
+exports.onStudentDeleted = functions.firestore
+  .document('students/{studentId}')
+  .onDelete(async (snap) => {
+    const data = snap.data();
+    const schoolId = data.schoolId;
+    if (!schoolId) return;
+    try {
+      await db.collection('schools').doc(schoolId).update({
+        studentCount: admin.firestore.FieldValue.increment(-1)
+      });
+    } catch (e) {
+      console.error('onStudentDeleted counter update failed:', e.message);
+    }
+  });
+
+// =========================================================
+// TIER-AWARE STRIPE CHECKOUT
+// =========================================================
+
+/**
+ * Create a tiered Stripe checkout session (upgrade/change tier).
+ * Uses real Stripe Price IDs. Supports monthly + yearly billing.
+ */
+exports.createTieredCheckout = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+
+  let { schoolId, tier, billing, successUrl, cancelUrl, couponCode } = data;
+  const uid = context.auth.uid;
+
+  const tierInfo = STRIPE_PRICES[tier];
+  if (!tierInfo) throw new functions.https.HttpsError('invalid-argument', `Unknown tier: ${tier}`);
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userData = userDoc.data() || {};
+  if (!userData.email) {
+    throw new functions.https.HttpsError('failed-precondition', 'User account missing email.');
+  }
+
+  // Resolve schoolId from user doc if not provided or placeholder
+  if (!schoolId || schoolId === '__FROM_USER__') {
+    schoolId = userData.schoolId;
+    if (!schoolId) {
+      throw new functions.https.HttpsError('failed-precondition', 'No school linked to your account. Set up your school in the app first.');
+    }
+  }
+
+  // Get or create Stripe customer
+  let customerId = userData.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: userData.email,
+      metadata: { firebaseUID: uid, schoolId },
+    });
+    customerId = customer.id;
+    await db.collection('users').doc(uid).update({ stripeCustomerId: customerId });
+  }
+
+  const isYearly = billing === 'yearly';
+  const priceId = isYearly ? tierInfo.yearlyPriceId : tierInfo.monthlyPriceId;
+
+  const sessionParams = {
+    customer: customerId,
+    payment_method_types: ['card'],
+    line_items: [{ price: priceId, quantity: 1 }],
+    mode: 'subscription',
+    success_url: successUrl || 'https://ezteach.org/subscription-success.html',
+    cancel_url: cancelUrl || 'https://ezteach.org/subscription-cancel.html',
+    metadata: { schoolId, userId: uid, tier, billing: isYearly ? 'yearly' : 'monthly' },
+    subscription_data: {
+      metadata: { schoolId, userId: uid, tier },
+    },
+    allow_promotion_codes: true,
+  };
+
+  // Apply specific coupon if provided
+  if (couponCode) {
+    try {
+      const promoCodes = await stripe.promotionCodes.list({ code: couponCode, active: true, limit: 1 });
+      if (promoCodes.data.length > 0) {
+        sessionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
+        delete sessionParams.allow_promotion_codes;
+      }
+    } catch (_) {
+      console.warn('Invalid coupon/promo code:', couponCode);
+    }
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams);
+
+  // Update the school's tier in Firestore
+  await db.collection('schools').doc(schoolId).update({
+    planTier: tier,
+    priceMonthly: tierInfo.monthlyAmount / 100,
+    studentCap: tierInfo.cap,
+  });
+
+  return { sessionId: session.id, url: session.url };
+});
+
+// =========================================================
+// STRIPE DISCOUNT CODES SETUP
+// =========================================================
+
+/**
+ * One-time setup: create Stripe coupons for 25% and 100% off.
+ * Call once via admin. Coupon IDs: EZTEACH25 and EZTEACH100.
+ */
+exports.setupStripeCoupons = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
+  const adminUid = functions.config().app?.admin_uid;
+  if (adminUid && context.auth.uid !== adminUid) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+
+  const results = [];
+
+  // 25% off coupon
+  try {
+    const coupon25 = await stripe.coupons.create({
+      id: 'EZTEACH25',
+      percent_off: 25,
+      duration: 'forever',
+      name: 'EZTeach 25% Off',
+    });
+    const promo25 = await stripe.promotionCodes.create({
+      coupon: coupon25.id,
+      code: 'EZTEACH25',
+      active: true,
+    });
+    results.push({ coupon: 'EZTEACH25', promoId: promo25.id, status: 'created' });
+  } catch (e) {
+    results.push({ coupon: 'EZTEACH25', status: 'error', message: e.message });
+  }
+
+  // 100% off coupon
+  try {
+    const coupon100 = await stripe.coupons.create({
+      id: 'EZTEACH100',
+      percent_off: 100,
+      duration: 'forever',
+      name: 'EZTeach 100% Off',
+    });
+    const promo100 = await stripe.promotionCodes.create({
+      coupon: coupon100.id,
+      code: 'EZTEACH100',
+      active: true,
+    });
+    results.push({ coupon: 'EZTEACH100', promoId: promo100.id, status: 'created' });
+  } catch (e) {
+    results.push({ coupon: 'EZTEACH100', status: 'error', message: e.message });
+  }
+
+  return { success: true, coupons: results };
+});
+
+// =========================================================
+// DELETE SCHOOL ACCOUNT (student/teacher/staff)
+// =========================================================
+
+/**
+ * Delete a school account (student, teacher, or staff).
+ * Also decrements studentCount when deleting a student.
+ */
+exports.deleteSchoolAccount = functions.runWith(runtimeOpts).https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Sign in required');
+
+  const callerUid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(callerUid).get();
+  const userData = userDoc.data() || {};
+  const role = userData.role || '';
+  const activeSchool = userData.activeSchoolId || '';
+
+  const { accountId, accountType, schoolId } = data;
+  if (!accountId || !accountType || !schoolId) {
+    throw new functions.https.HttpsError('invalid-argument', 'accountId, accountType, and schoolId required');
+  }
+
+  // Only school admins or district admins can delete accounts
+  const isSchoolAdmin = role === 'school' && activeSchool === schoolId;
+  const isDistrict = role === 'district' && userData.districtId;
+  const isDistrictAdmin = isDistrict && await isDistrictAdminForSchool(callerUid, schoolId);
+  if (!isSchoolAdmin && !isDistrictAdmin) {
+    throw new functions.https.HttpsError('permission-denied', 'Only school or district admins can delete accounts');
+  }
+
+  const batch = db.batch();
+
+  if (accountType === 'student') {
+    // Delete student document
+    batch.delete(db.collection('students').doc(accountId));
+    // Delete user document
+    batch.delete(db.collection('users').doc(accountId));
+    // Decrement studentCount
+    batch.update(db.collection('schools').doc(schoolId), {
+      studentCount: admin.firestore.FieldValue.increment(-1)
+    });
+  } else if (accountType === 'teacher') {
+    batch.delete(db.collection('teachers').doc(accountId));
+  } else if (accountType === 'staff') {
+    batch.delete(db.collection('users').doc(accountId));
+  }
+
+  await batch.commit();
+
+  // Try to delete the Auth user (only for students with auth accounts)
+  if (accountType === 'student') {
+    try { await admin.auth().deleteUser(accountId); } catch (_) {}
+  }
+
+  return { success: true, deletedId: accountId };
+});

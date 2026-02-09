@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct FreeBooksView: View {
     @State private var searchText = ""
@@ -70,7 +71,7 @@ struct FreeBooksView: View {
                                 .rotationEffect(.degrees(animateHeader ? 5 : -5))
                         }
                         
-                        Text("Free classics from multiple libraries worldwide")
+                        Text("100+ picture books & thousands of free classics")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         
@@ -171,6 +172,12 @@ struct FreeBooksView: View {
                         .shadow(color: .brown.opacity(0.3), radius: 8)
                     }
                     
+                    // Picture Books Collection (100 classic children's books)
+                    pictureBooksBanner
+                    
+                    // Read Together Feature
+                    readTogetherBanner
+                    
                     if isLoading {
                         VStack(spacing: 16) {
                             AnimatedBookLoader()
@@ -184,7 +191,7 @@ struct FreeBooksView: View {
                     } else {
                         // Results count
                         HStack {
-                            Text("\(books.count) free books found")
+                            Text("\(books.count) classic books shown  •  100+ picture books below")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
@@ -234,6 +241,129 @@ struct FreeBooksView: View {
         }
     }
     
+    // MARK: - Picture Books Banner
+    private var pictureBooksBanner: some View {
+        NavigationLink {
+            PictureBooksView()
+        } label: {
+            HStack(spacing: 16) {
+                // Book stack icon
+                VStack(spacing: 2) {
+                    ForEach(0..<3) { i in
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill([Color.red, Color.blue, Color.green][i])
+                            .frame(width: 32, height: 8)
+                            .offset(x: CGFloat(i - 1) * 3)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("100 Picture Books")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("NEW")
+                            .font(.caption2.bold())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.red)
+                            .cornerRadius(4)
+                    }
+                    
+                    Text("Pete the Cat, Dr. Seuss, Eric Carle & more!")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(EZTeachColors.brightTeal)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .shadow(color: .brown.opacity(0.15), radius: 8, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.red.opacity(0.3), .blue.opacity(0.3), .green.opacity(0.3)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 2
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Read Together Banner
+    private var readTogetherBanner: some View {
+        NavigationLink {
+            MultiplayerReadingHubView(
+                userId: Auth.auth().currentUser?.uid ?? "",
+                userName: Auth.auth().currentUser?.displayName ?? "Reader",
+                schoolId: ""
+            )
+        } label: {
+            HStack(spacing: 16) {
+                // Reader icons
+                ZStack {
+                    Circle()
+                        .fill(Color.purple.opacity(0.2))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "person.2.fill")
+                        .font(.title3)
+                        .foregroundColor(.purple)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Read Together")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("MULTIPLAYER")
+                            .font(.caption2.bold())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.purple)
+                            .cornerRadius(4)
+                    }
+                    
+                    Text("Share reading sessions with friends & family")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.purple)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .shadow(color: .purple.opacity(0.15), radius: 8, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.purple.opacity(0.3), lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
     private func search() {
         let q = searchText.trimmingCharacters(in: .whitespaces)
         selectedCategory = nil
@@ -267,7 +397,7 @@ struct FreeBooksView: View {
     }
 }
 
-// MARK: - Enhanced Book Card with Actions
+// MARK: - Enhanced Book Card with Actions (Proper Book Aspect Ratio)
 struct EnhancedBookCardWithActions: View {
     let book: GutendexBook
     let onRead: () -> Void
@@ -279,112 +409,180 @@ struct EnhancedBookCardWithActions: View {
         colorForSubject(book.subjects.first ?? book.title)
     }
     
+    // Fallback cover when no cover image URL is available from the API
+    private var fallbackCover: some View {
+        ZStack {
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [bookColor, bookColor.opacity(0.75)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.12), .clear, .black.opacity(0.08)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: iconForSubject(book.subjects.first ?? ""))
+                    .font(.system(size: 36))
+                    .foregroundColor(.white.opacity(0.9))
+                    .shadow(color: .black.opacity(0.2), radius: 2)
+                Text(book.title.prefix(25) + (book.title.count > 25 ? "..." : ""))
+                    .font(.system(size: 10, weight: .bold, design: .serif))
+                    .foregroundColor(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.horizontal, 8)
+                Spacer()
+            }
+            .padding(.vertical, 8)
+            RoundedRectangle(cornerRadius: 2)
+                .stroke(Color.yellow.opacity(0.4), lineWidth: 2)
+                .padding(8)
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
-            // Book cover
+            // Book cover - show real cover image if available
             ZStack {
-                // 3D book effect
                 HStack(spacing: 0) {
                     // Spine
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [bookColor.opacity(0.6), bookColor],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: 8)
-                    
-                    // Cover
                     ZStack {
                         Rectangle()
                             .fill(
                                 LinearGradient(
-                                    colors: [bookColor, bookColor.opacity(0.7)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                                    colors: [bookColor.opacity(0.5), bookColor.opacity(0.8), bookColor.opacity(0.6)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
                                 )
                             )
-                        
-                        // Cover sheen
-                        LinearGradient(
-                            colors: [.white.opacity(0.3), .clear, .black.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        
-                        // Topic icon
                         VStack(spacing: 8) {
-                            Image(systemName: iconForSubject(book.subjects.first ?? ""))
-                                .font(.system(size: 28))
-                                .foregroundColor(.white.opacity(0.9))
-                            
-                            // Source badge
-                            HStack(spacing: 4) {
-                                Image(systemName: book.source.icon)
-                                    .font(.system(size: 8))
+                            ForEach(0..<3, id: \.self) { _ in
+                                Rectangle()
+                                    .fill(Color.black.opacity(0.1))
+                                    .frame(height: 1)
                             }
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.black.opacity(0.2))
-                            .cornerRadius(6)
+                        }
+                        .padding(.vertical, 20)
+                    }
+                    .frame(width: 12)
+                    
+                    // Cover — real image or fallback
+                    ZStack {
+                        if let coverUrl = book.coverUrl, let url = URL(string: coverUrl) {
+                            // Real cover image from API
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                case .failure:
+                                    fallbackCover
+                                case .empty:
+                                    ZStack {
+                                        Rectangle().fill(bookColor.opacity(0.3))
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                @unknown default:
+                                    fallbackCover
+                                }
+                            }
+                        } else {
+                            fallbackCover
                         }
                         
-                        // Gold border
-                        Rectangle()
-                            .stroke(Color.yellow.opacity(0.5), lineWidth: 2)
+                        // Source badge overlay (bottom-left)
+                        VStack {
+                            Spacer()
+                            HStack {
+                                HStack(spacing: 4) {
+                                    Image(systemName: book.source.icon)
+                                        .font(.system(size: 8))
+                                    Text(book.source.rawValue.prefix(10))
+                                        .font(.system(size: 7, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(Color.black.opacity(0.55))
+                                .cornerRadius(6)
+                                Spacer()
+                            }
                             .padding(6)
+                        }
+                    }
+                    .clipped()
+                }
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .shadow(color: .black.opacity(0.25), radius: isHovered ? 12 : 8, x: 4, y: isHovered ? 8 : 6)
+                
+                // Page edges
+                VStack(spacing: 0) {
+                    ForEach(0..<8, id: \.self) { _ in
+                        Rectangle()
+                            .fill(Color(red: 0.95, green: 0.93, blue: 0.88))
+                            .frame(width: 2, height: 20)
                     }
                 }
-                .frame(height: 120)
-                .cornerRadius(6)
-                .shadow(color: .black.opacity(0.2), radius: isHovered ? 12 : 6, y: isHovered ? 8 : 4)
+                .offset(x: 58)
             }
             .scaleEffect(isHovered ? 1.02 : 1.0)
-            .onTapGesture {
-                onRead()
-            }
+            .onTapGesture { onRead() }
             .onAppear {
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
                     isHovered = true
                 }
             }
             
-            // Book info
-            VStack(alignment: .leading, spacing: 4) {
+            // Book info below cover
+            VStack(alignment: .leading, spacing: 6) {
                 Text(book.title)
-                    .font(.system(size: 12, weight: .semibold, design: .serif))
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
                     .foregroundColor(Color(red: 0.2, green: 0.15, blue: 0.1))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
                 Text(book.authors.joined(separator: ", "))
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                 
-                // Action buttons
-                HStack(spacing: 8) {
+                // Action buttons row
+                HStack(spacing: 6) {
                     // Read button
                     Button(action: onRead) {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white)
-                            .padding(6)
-                            .background(bookColor)
-                            .cornerRadius(6)
+                        HStack(spacing: 4) {
+                            Image(systemName: "book.fill")
+                                .font(.system(size: 10))
+                            Text("Read")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(bookColor)
+                        .cornerRadius(8)
                     }
                     
                     // Direct link button
                     Button(action: onDirectLink) {
-                        Image(systemName: "link")
+                        Image(systemName: "safari.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.brown)
+                            .foregroundColor(.blue)
                             .padding(6)
-                            .background(Color.brown.opacity(0.15))
-                            .cornerRadius(6)
+                            .background(Color.blue.opacity(0.12))
+                            .cornerRadius(8)
                     }
                     
                     // Download button
@@ -394,26 +592,26 @@ struct EnhancedBookCardWithActions: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(.green)
                                 .padding(6)
-                                .background(Color.green.opacity(0.15))
-                                .cornerRadius(6)
+                                .background(Color.green.opacity(0.12))
+                                .cornerRadius(8)
                         }
                     }
                     
                     Spacer()
                 }
-                .padding(.top, 4)
+                .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
+            .padding(12)
         }
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 14)
                 .fill(Color.white)
-                .shadow(color: .brown.opacity(0.1), radius: 8, y: 4)
+                .shadow(color: .brown.opacity(0.12), radius: 10, y: 5)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.brown.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.brown.opacity(0.1), lineWidth: 1)
         )
     }
 }

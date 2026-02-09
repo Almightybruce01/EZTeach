@@ -109,11 +109,11 @@ struct StudentAccountView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "key.fill")
                                 .foregroundColor(EZTeachColors.tronCyan)
-                            Text("Login Credentials")
+                            Text("Login Info")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundColor(.white)
                         }
-                        Text("Sign in with Student ID: \(student.studentCode)\nDefault password: \(student.studentCode)!")
+                        Text("Your Student ID is \(student.studentCode). If you need to reset your password, ask your teacher.")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.8))
                     }

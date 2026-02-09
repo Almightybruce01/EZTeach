@@ -487,7 +487,7 @@ struct MathQuizGameView: View {
 struct ConfettiView: View {
     @State private var confettiPieces: [ConfettiPiece] = (0..<50).map { _ in
         ConfettiPiece(
-            x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
+            x: CGFloat.random(in: 0...400),
             y: -20,
             color: [Color.red, .orange, .yellow, .green, .blue, .purple, .pink].randomElement()!,
             rotation: Double.random(in: 0...360),
@@ -509,7 +509,7 @@ struct ConfettiView: View {
         .onAppear {
             for i in 0..<confettiPieces.count {
                 withAnimation(.easeOut(duration: Double.random(in: 2...4))) {
-                    confettiPieces[i].y = UIScreen.main.bounds.height + 50
+                    confettiPieces[i].y = 900
                     confettiPieces[i].x += CGFloat.random(in: -100...100)
                     confettiPieces[i].rotation += Double.random(in: 180...720)
                 }

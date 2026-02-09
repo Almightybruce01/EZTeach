@@ -106,11 +106,15 @@ enum EZTeachColors {
     static let softOrange = Color(red: 1, green: 0.65, blue: 0.35)
     static let softPurple = Color(red: 0.6, green: 0.4, blue: 0.95)
     static let brightTeal = Color(red: 0.2, green: 0.78, blue: 0.75)
+    static let teal = Color.teal
     static let warmYellow = Color(red: 1, green: 0.85, blue: 0.35)
     static let softBlue = Color(red: 0.4, green: 0.6, blue: 1)
     static let cardWhite = Color.white
     static let textDark = Color(red: 0.12, green: 0.12, blue: 0.2)
+    static let textPrimary = Color.primary
+    static let textSecondary = Color.secondary
     static let textMutedLight = Color(red: 0.45, green: 0.45, blue: 0.55)
+    static let backgroundColor = Color(UIColor.systemBackground)
     
     static let lightAppealGradient = LinearGradient(
         colors: [lightSky, lightMint.opacity(0.6)],
@@ -162,5 +166,276 @@ extension View {
             .padding(.vertical, 14)
             .background(EZTeachColors.accent.opacity(0.1))
             .cornerRadius(12)
+    }
+    
+    /// Premium glass card effect
+    func ezGlassCard(color: Color = .white) -> some View {
+        self
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(color.opacity(0.8))
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(color.opacity(0.2), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+    }
+    
+    /// Floating card with 3D effect
+    func ezFloatingCard() -> some View {
+        self
+            .padding(16)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.05))
+                        .offset(x: 4, y: 4)
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white)
+                }
+            )
+            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+    }
+    
+    /// AI feature badge styling
+    func ezAIBadge() -> some View {
+        self
+            .font(.caption.weight(.bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                LinearGradient(
+                    colors: [Color.purple, Color.pink],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(12)
+    }
+    
+    /// Feature highlight effect
+    func ezFeatureHighlight(color: Color = EZTeachColors.brightTeal) -> some View {
+        self
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(color, lineWidth: 2)
+            )
+            .shadow(color: color.opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+    
+    /// Subtle shimmer effect for loading states
+    func ezShimmer(active: Bool = true) -> some View {
+        self.overlay(
+            Group {
+                if active {
+                    ShimmerView()
+                }
+            }
+        )
+    }
+}
+
+// MARK: - Shimmer Effect View
+struct ShimmerView: View {
+    @State private var phase: CGFloat = 0
+    
+    var body: some View {
+        LinearGradient(
+            gradient: Gradient(colors: [
+                .clear,
+                .white.opacity(0.4),
+                .clear
+            ]),
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .mask(
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [.clear, .white, .clear]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .offset(x: phase)
+        )
+        .onAppear {
+            withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                phase = 300
+            }
+        }
+    }
+}
+
+// MARK: - Premium UI Components
+struct EZFeatureBadge: View {
+    let icon: String
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption2.weight(.bold))
+            Text(text)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(color)
+        .cornerRadius(12)
+    }
+}
+
+struct EZAIBadge: View {
+    var text: String = "AI"
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles")
+                .font(.caption2)
+            Text(text)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            LinearGradient(
+                colors: [.purple, .pink],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .cornerRadius(10)
+    }
+}
+
+struct EZNewBadge: View {
+    var body: some View {
+        Text("NEW")
+            .font(.system(size: 9, weight: .black))
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color.green)
+            .cornerRadius(6)
+    }
+}
+
+struct EZProgressRing: View {
+    let progress: Double
+    let color: Color
+    var lineWidth: CGFloat = 8
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(color.opacity(0.2), lineWidth: lineWidth)
+            
+            Circle()
+                .trim(from: 0, to: CGFloat(min(progress, 1.0)))
+                .stroke(
+                    LinearGradient(
+                        colors: [color, color.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+        }
+    }
+}
+
+struct EZEmptyState: View {
+    let icon: String
+    let title: String
+    let message: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            ZStack {
+                Circle()
+                    .fill(EZTeachColors.brightTeal.opacity(0.1))
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 40))
+                    .foregroundColor(EZTeachColors.brightTeal.opacity(0.6))
+            }
+            
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            if let actionTitle = actionTitle, let action = action {
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(EZTeachColors.accentGradient)
+                        .cornerRadius(12)
+                }
+            }
+        }
+        .padding(40)
+    }
+}
+
+struct EZSectionHeader: View {
+    let title: String
+    var subtitle: String? = nil
+    var icon: String? = nil
+    var badge: String? = nil
+    
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            if let icon = icon {
+                Image(systemName: icon)
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(EZTeachColors.brightTeal)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    if let badge = badge {
+                        EZAIBadge(text: badge)
+                    }
+                }
+                
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+        }
     }
 }

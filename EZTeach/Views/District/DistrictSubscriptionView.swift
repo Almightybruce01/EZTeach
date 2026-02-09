@@ -29,14 +29,15 @@ struct DistrictSubscriptionView: View {
     @State private var errorMessage = ""
     @State private var currentStep = 1
     @State private var districtId: String?
+    @State private var selectedSchoolsForBilling: Set<String> = []
     
     @Environment(\.dismiss) private var dismiss
     private let db = Firestore.firestore()
     private let fs = FirestoreService.shared
     
-    private var numberOfSchools: Int { validatedSchools.count }
+    private var numberOfSchools: Int { selectedSchoolsForBilling.count }
     
-    // Pricing from chosen schools only
+    // Pricing from selected schools only (for billing)
     private var pricing: (tier: District.SubscriptionTier, pricePerSchool: Double, total: Double) {
         District.calculatePrice(schoolCount: max(1, numberOfSchools))
     }
@@ -163,14 +164,40 @@ struct DistrictSubscriptionView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Schools (\(districtSchools.count))")
                             .font(.subheadline.weight(.medium))
-                        ForEach(districtSchools) { school in
+                        // Total students across all schools
+                let totalStudents = districtSchools.reduce(0) { $0 + $1.studentCount }
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Total Students").font(.caption).foregroundColor(.secondary)
+                        Text("\(totalStudents)").font(.title2.bold())
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Per-Student Rate").font(.caption).foregroundColor(.secondary)
+                        let rate = District.calculateStudentPrice(totalStudents: max(totalStudents, 3000))
+                        Text("$\(Int(rate.pricePerStudent))/student/yr").font(.headline).foregroundColor(EZTeachColors.accent)
+                    }
+                }
+                .padding(12)
+                .background(EZTeachColors.accent.opacity(0.08))
+                .cornerRadius(10)
+
+                ForEach(districtSchools) { school in
                             HStack {
                                 Image(systemName: "building.2.fill")
                                     .foregroundColor(EZTeachColors.success)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(school.name).font(.subheadline.weight(.medium))
-                                    if !school.city.isEmpty {
-                                        Text(school.city).font(.caption).foregroundColor(.secondary)
+                                    HStack(spacing: 8) {
+                                        if !school.city.isEmpty {
+                                            Text(school.city).font(.caption).foregroundColor(.secondary)
+                                        }
+                                        Text("\(school.studentCount) students")
+                                            .font(.caption.bold())
+                                            .foregroundColor(EZTeachColors.accent)
+                                        Text("(cap: \(school.studentCap))")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
                                 }
                                 Spacer()
@@ -228,7 +255,10 @@ struct DistrictSubscriptionView: View {
                         let item = DistrictSchoolItem(
                             id: id,
                             name: d?["name"] as? String ?? "School",
-                            city: d?["city"] as? String ?? ""
+                            city: d?["city"] as? String ?? "",
+                            studentCount: d?["studentCount"] as? Int ?? 0,
+                            studentCap: d?["studentCap"] as? Int ?? 200,
+                            planTier: d?["planTier"] as? String ?? "S"
                         )
                         DispatchQueue.main.async {
                             results[id] = item
@@ -454,6 +484,8 @@ struct DistrictSubscriptionView: View {
                 }
                 
                 Button {
+                    // Pre-select all schools for billing when moving to payment
+                    selectedSchoolsForBilling = Set(validatedSchools.map { $0.id })
                     currentStep = 3
                 } label: {
                     Text("Continue to payment")
@@ -528,27 +560,95 @@ struct DistrictSubscriptionView: View {
         }
     }
     
-    // MARK: - Step 3: View Plans (App Store compliant: no payment in app)
+    // MARK: - Step 3: Payment & School Selection
     private var step3_Payment: some View {
         VStack(spacing: 24) {
-            // Summary card (no prices)
+            // Important billing notice
+            billingNoticeCard
+            
+            // School selection for billing
+            schoolBillingSelection
+            
+            // Summary card
             VStack(spacing: 16) {
-                Text("Summary")
-                    .font(.headline)
+                HStack {
+                    Text("Billing Summary")
+                        .font(.headline)
+                    Spacer()
+                    if numberOfSchools > 0 {
+                        Text("\(numberOfSchools) school\(numberOfSchools == 1 ? "" : "s") selected")
+                            .font(.caption)
+                            .foregroundColor(EZTeachColors.success)
+                    }
+                }
+                
+                Divider()
                 
                 VStack(spacing: 12) {
                     summaryRow(label: "District", value: districtName)
-                    summaryRow(label: "Schools", value: "\(numberOfSchools)")
+                    summaryRow(label: "Schools to Bill", value: "\(numberOfSchools)")
+                }
+
+                if numberOfSchools > 0 {
+                    Divider()
+
+                    VStack(spacing: 8) {
+                        Text("Option A — Per-School/Year")
+                            .font(.subheadline.bold())
+                        let perSchool = District.calculatePerSchoolPrice(schoolCount: numberOfSchools)
+                        Text("$\(Int(perSchool.annualTotal))/year")
+                            .font(.title3.bold())
+                            .foregroundStyle(EZTeachColors.primaryGradient)
+                        Text("$2,750/school/year (\(numberOfSchools) schools, up to 750 students each)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Divider()
+
+                    VStack(spacing: 8) {
+                        Text("Option B — Per-Student/Year")
+                            .font(.subheadline.bold())
+                        Text("$8–$12/student/year based on total district enrollment")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            priceRow("3,000–7,500 students", "$12/student")
+                            priceRow("7,501–15,000 students", "$11/student")
+                            priceRow("15,001–30,000 students", "$10/student")
+                            priceRow("30,001–60,000 students", "$9/student")
+                            priceRow("60,000+ students", "$8/student")
+                        }
+                        .font(.caption)
+                    }
+
+                    Text("Contact ezteach0@gmail.com to finalize district pricing.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
             .padding(20)
             .background(EZTeachColors.secondaryBackground)
             .cornerRadius(16)
             
-            Text("District plans are managed on our website. Complete your setup and manage billing there.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            // Website checkout info
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .foregroundColor(.orange)
+                    Text("Secure Payment via Website")
+                        .font(.subheadline.weight(.medium))
+                }
+                
+                Text("For security, all payments are processed through our website using Stripe. You will NOT be charged for schools you don't select.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding()
+            .background(Color.orange.opacity(0.1))
+            .cornerRadius(12)
             
             // Navigation
             HStack(spacing: 16) {
@@ -565,25 +665,208 @@ struct DistrictSubscriptionView: View {
                 }
                 
                 Button {
-                    openDistrictWebsite()
+                    proceedToStripeCheckout()
                 } label: {
                     HStack {
-                        Image(systemName: "safari")
-                        Text("Exclusive Features on Website")
+                        Image(systemName: "creditcard.fill")
+                        Text("Checkout on Website")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(EZTeachColors.accentGradient)
-                    .foregroundColor(.white)
+                    .background(numberOfSchools == 0 ? AnyShapeStyle(Color.gray.opacity(0.3)) : AnyShapeStyle(EZTeachColors.accentGradient))
+                    .foregroundColor(numberOfSchools == 0 ? .secondary : .white)
                     .cornerRadius(12)
                 }
+                .disabled(numberOfSchools == 0)
             }
             
-            Text("Exclusive features and billing are managed on our website.")
+            Text("You will be redirected to ezteach.org to complete payment securely via Stripe.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+    
+    // MARK: - Billing Notice Card
+    private var billingNoticeCard: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "dollarsign.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.green)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Transparent Billing")
+                        .font(.headline)
+                    Text("Only pay for schools you select below")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+            
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Selected")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(selectedSchoolsForBilling.count)")
+                        .font(.title2.bold())
+                        .foregroundColor(.green)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(validatedSchools.count)")
+                        .font(.title2.bold())
+                        .foregroundColor(.primary)
+                }
+                
+                Spacer()
+                
+                Button {
+                    // Select all
+                    selectedSchoolsForBilling = Set(validatedSchools.map { $0.id })
+                } label: {
+                    Text("Select All")
+                        .font(.caption)
+                        .foregroundColor(EZTeachColors.accent)
+                }
+            }
+        }
+        .padding()
+        .background(Color.green.opacity(0.1))
+        .cornerRadius(12)
+    }
+    
+    // MARK: - School Billing Selection
+    private var schoolBillingSelection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Select Schools to Include in Billing")
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+                if !selectedSchoolsForBilling.isEmpty {
+                    Button {
+                        selectedSchoolsForBilling.removeAll()
+                    } label: {
+                        Text("Deselect All")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+            }
+            
+            if validatedSchools.isEmpty {
+                Text("No schools added yet. Go back to add schools.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding()
+            } else {
+                ForEach(validatedSchools) { school in
+                    Button {
+                        toggleSchoolSelection(school.id)
+                    } label: {
+                        HStack {
+                            Image(systemName: selectedSchoolsForBilling.contains(school.id) ? "checkmark.square.fill" : "square")
+                                .foregroundColor(selectedSchoolsForBilling.contains(school.id) ? EZTeachColors.success : .gray)
+                                .font(.title3)
+                            
+                            Image(systemName: school.exists ? "building.2.fill" : "plus.circle.fill")
+                                .foregroundColor(school.exists ? EZTeachColors.accent : EZTeachColors.success)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(school.name)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundColor(.primary)
+                                Text(school.exists ? "Existing School" : "New School")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            if selectedSchoolsForBilling.contains(school.id) {
+                                Text("$2,750/yr")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(selectedSchoolsForBilling.contains(school.id) ? Color.green.opacity(0.1) : EZTeachColors.secondaryBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(selectedSchoolsForBilling.contains(school.id) ? Color.green.opacity(0.5) : Color.clear, lineWidth: 2)
+                                )
+                        )
+                    }
+                }
+            }
+            
+            // Warning about unselected schools
+            if !selectedSchoolsForBilling.isEmpty && selectedSchoolsForBilling.count < validatedSchools.count {
+                HStack {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.orange)
+                    Text("Unselected schools will NOT have premium features until added to billing.")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+    
+    private func toggleSchoolSelection(_ schoolId: String) {
+        if selectedSchoolsForBilling.contains(schoolId) {
+            selectedSchoolsForBilling.remove(schoolId)
+        } else {
+            selectedSchoolsForBilling.insert(schoolId)
+        }
+    }
+    
+    private func proceedToStripeCheckout() {
+        guard !selectedSchoolsForBilling.isEmpty else { return }
+        
+        // Build URL with selected school IDs for Stripe checkout
+        let schoolIds = Array(selectedSchoolsForBilling).joined(separator: ",")
+        let encodedDistrict = districtName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let checkoutUrl = "https://ezteach.org/checkout/district?name=\(encodedDistrict)&schools=\(schoolIds)&count=\(selectedSchoolsForBilling.count)"
+        
+        if let url = URL(string: checkoutUrl) {
+            UIApplication.shared.open(url)
+        }
+        
+        // Also save the pending subscription to Firestore for tracking
+        savePendingSubscription()
+    }
+    
+    private func savePendingSubscription() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        
+        let selectedSchoolsList = validatedSchools.filter { selectedSchoolsForBilling.contains($0.id) }
+        
+        let pendingData: [String: Any] = [
+            "userId": uid,
+            "districtName": districtName,
+            "selectedSchoolIds": Array(selectedSchoolsForBilling),
+            "selectedSchoolNames": selectedSchoolsList.map { $0.name },
+            "numberOfSchools": selectedSchoolsForBilling.count,
+            "pricingTier": pricing.tier.rawValue,
+            "pricePerSchool": pricing.pricePerSchool,
+            "totalMonthlyPrice": pricing.total,
+            "status": "pending_payment",
+            "createdAt": Timestamp(),
+            "expiresAt": Timestamp(date: Calendar.current.date(byAdding: .hour, value: 24, to: Date()) ?? Date())
+        ]
+        
+        db.collection("pendingDistrictSubscriptions").addDocument(data: pendingData)
     }
     
     private func openDistrictWebsite() {
@@ -596,7 +879,7 @@ struct DistrictSubscriptionView: View {
         VStack(spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(pricing.tier.rawValue.capitalized)
+                    Text("Per-School Annual")
                         .font(.caption.bold())
                         .foregroundColor(EZTeachColors.accent)
                         .padding(.horizontal, 8)
@@ -604,7 +887,7 @@ struct DistrictSubscriptionView: View {
                         .background(EZTeachColors.accent.opacity(0.1))
                         .cornerRadius(6)
                     
-                    Text("\(pricing.tier.schoolRange) schools")
+                    Text("\(numberOfSchools) school\(numberOfSchools == 1 ? "" : "s") selected")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -613,9 +896,9 @@ struct DistrictSubscriptionView: View {
                 
                 VStack(alignment: .trailing, spacing: 2) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text("$\(Int(pricing.pricePerSchool))")
+                        Text("$2,750")
                             .font(.title.bold())
-                        Text("/school/mo")
+                        Text("/school/yr")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -625,26 +908,17 @@ struct DistrictSubscriptionView: View {
             Divider()
             
             HStack {
-                Text("Total Monthly")
+                Text("Annual Total")
                     .font(.subheadline)
                 Spacer()
-                Text(String(format: "$%.2f", pricing.total))
+                Text(String(format: "$%,.0f/yr", 2750.0 * Double(numberOfSchools)))
                     .font(.title2.bold())
                     .foregroundStyle(EZTeachColors.primaryGradient)
             }
             
-            if pricing.tier != .none {
-                let savings = (75.0 - pricing.pricePerSchool) * Double(numberOfSchools)
-                if savings > 0 {
-                    HStack {
-                        Image(systemName: "tag.fill")
-                            .foregroundColor(EZTeachColors.success)
-                        Text("You save \(String(format: "$%.2f", savings))/month with volume pricing!")
-                            .font(.caption.bold())
-                            .foregroundColor(EZTeachColors.success)
-                    }
-                }
-            }
+            Text("All features included • Up to 750 students per school")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
         .padding(20)
         .background(
@@ -659,14 +933,19 @@ struct DistrictSubscriptionView: View {
     
     private var volumeDiscountInfo: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Volume Pricing")
+            Text("District Annual Pricing")
                 .font(.subheadline.weight(.medium))
             
             VStack(spacing: 8) {
-                pricingTierRow(tier: .small, isSelected: pricing.tier == .small)
-                pricingTierRow(tier: .medium, isSelected: pricing.tier == .medium)
-                pricingTierRow(tier: .large, isSelected: pricing.tier == .large)
-                pricingTierRow(tier: .enterprise, isSelected: pricing.tier == .enterprise)
+                districtTierRow(label: "3,000–7,500 students", price: "$12/student/year")
+                districtTierRow(label: "7,501–15,000 students", price: "$11/student/year")
+                districtTierRow(label: "15,001–30,000 students", price: "$10/student/year")
+                districtTierRow(label: "30,001–60,000 students", price: "$9/student/year")
+                districtTierRow(label: "60,000+ students", price: "$8/student/year")
+                
+                Divider().padding(.vertical, 4)
+                
+                districtTierRow(label: "Per-School Option", price: "$2,750/school/year")
             }
         }
         .padding()
@@ -674,27 +953,29 @@ struct DistrictSubscriptionView: View {
         .cornerRadius(12)
     }
     
-    private func pricingTierRow(tier: District.SubscriptionTier, isSelected: Bool) -> some View {
+    private func districtTierRow(label: String, price: String) -> some View {
         HStack {
-            Text("\(tier.schoolRange) schools")
+            Text(label)
                 .font(.caption)
-                .foregroundColor(isSelected ? .primary : .secondary)
+                .foregroundColor(.secondary)
             
             Spacer()
             
-            Text("$\(Int(tier.pricePerSchool))/school")
+            Text(price)
                 .font(.caption.bold())
-                .foregroundColor(isSelected ? EZTeachColors.accent : .secondary)
-            
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(EZTeachColors.success)
-                    .font(.caption)
-            }
+                .foregroundColor(EZTeachColors.accent)
         }
         .padding(.vertical, 4)
     }
     
+    private func priceRow(_ range: String, _ price: String) -> some View {
+        HStack {
+            Text(range).foregroundColor(.secondary)
+            Spacer()
+            Text(price).fontWeight(.semibold).foregroundColor(EZTeachColors.accent)
+        }
+    }
+
     private func summaryRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
@@ -751,6 +1032,9 @@ struct DistrictSchoolItem: Identifiable {
     let id: String
     let name: String
     let city: String
+    var studentCount: Int = 0
+    var studentCap: Int = 200
+    var planTier: String = "S"
 }
 
 // MARK: - Helper Model

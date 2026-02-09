@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EZTeach — The Future of Learning, All in One</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:#0a0a1a; color:#fff; }
+  .slide { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:60px 80px; position:relative; overflow:hidden; page-break-after:always; }
+  .slide::before { content:''; position:absolute; top:0; left:0; right:0; bottom:0; opacity:0.06; background:radial-gradient(circle at 30% 20%, #6C63FF 0%, transparent 50%), radial-gradient(circle at 70% 80%, #00D4AA 0%, transparent 50%); }
+  .content { position:relative; z-index:1; width:100%; max-width:1100px; }
+  h1 { font-size:3.2em; font-weight:800; margin-bottom:20px; background:linear-gradient(135deg,#6C63FF,#00D4AA); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  h2 { font-size:2.4em; font-weight:700; margin-bottom:16px; color:#fff; }
+  h3 { font-size:1.5em; color:#00D4AA; margin-bottom:10px; }
+  p, li { font-size:1.15em; line-height:1.7; color:#c8c8d8; }
+  .subtitle { font-size:1.3em; color:#a8a8c8; margin-bottom:30px; }
+  .badge { display:inline-block; padding:6px 16px; border-radius:20px; font-size:0.85em; font-weight:600; margin:4px; }
+  .badge-purple { background:#6C63FF33; color:#6C63FF; border:1px solid #6C63FF55; }
+  .badge-teal { background:#00D4AA33; color:#00D4AA; border:1px solid #00D4AA55; }
+  .badge-orange { background:#FF8C4233; color:#FF8C42; border:1px solid #FF8C4255; }
+  .badge-pink { background:#FF6B9D33; color:#FF6B9D; border:1px solid #FF6B9D55; }
+  .grid { display:grid; gap:24px; margin-top:30px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:28px; }
+  .card h3 { margin-bottom:8px; }
+  .card p { font-size:1em; }
+  .icon { font-size:2.2em; margin-bottom:12px; }
+  .stat { font-size:3em; font-weight:800; }
+  .stat-label { font-size:1em; color:#888; }
+  .highlight { background:linear-gradient(135deg,#6C63FF22,#00D4AA22); border:1px solid #6C63FF44; border-radius:16px; padding:30px; margin-top:24px; }
+  ul { padding-left:24px; margin-top:12px; }
+  li { margin-bottom:8px; }
+  .slide-num { position:absolute; bottom:20px; right:40px; font-size:0.9em; color:#555; }
+  .logo-text { font-size:1.2em; font-weight:800; letter-spacing:-0.5px; }
+  .logo-text span { color:#00D4AA; }
+  .cta { display:inline-block; padding:14px 36px; background:linear-gradient(135deg,#6C63FF,#00D4AA); color:#fff; font-size:1.1em; font-weight:700; border-radius:30px; text-decoration:none; margin-top:20px; }
+  @media print { .slide { min-height:auto; padding:40px; } }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Title -->
+<div class="slide" style="text-align:center;">
+  <div class="content">
+    <div style="font-size:4em; margin-bottom:20px;">📚✨</div>
+    <h1 style="font-size:4em;">EZTeach</h1>
+    <p class="subtitle" style="font-size:1.6em;">The Future of Learning — All in One App</p>
+    <div style="margin:30px 0;">
+      <span class="badge badge-purple">K-12 Complete</span>
+      <span class="badge badge-teal">AI-Powered</span>
+      <span class="badge badge-orange">100+ Books</span>
+      <span class="badge badge-pink">Games & Activities</span>
+    </div>
+    <p style="font-size:1.2em; color:#888;">For Teachers · Students · Parents · Schools · Districts</p>
+  </div>
+  <div class="slide-num">1 / 15</div>
+</div>
+
+<!-- SLIDE 2: The Problem -->
+<div class="slide">
+  <div class="content">
+    <h2>🔴 The Problem Schools Face Today</h2>
+    <div class="grid grid-2" style="margin-top:30px;">
+      <div class="card">
+        <div class="icon">📱💻📋</div>
+        <h3>Tool Overload</h3>
+        <p>Schools juggle 8-12 different apps for grading, attendance, communication, behavior tracking, and more. Teachers waste hours switching between platforms.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💸</div>
+        <h3>Budget Strain</h3>
+        <p>Multiple subscriptions per teacher add up fast. Districts spend thousands on fragmented tools that don't integrate with each other.</p>
+      </div>
+      <div class="card">
+        <div class="icon">👨‍👩‍👧‍👦❓</div>
+        <h3>Parent Disconnect</h3>
+        <p>Parents are locked out of the learning process. They can't easily see grades, homework, or how their child is progressing day-to-day.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🧒😴</div>
+        <h3>Student Engagement</h3>
+        <p>Traditional methods don't capture digital-native students' attention. Learning tools need to be as engaging as the apps kids already love.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">2 / 15</div>
+</div>
+
+<!-- SLIDE 3: The Solution -->
+<div class="slide">
+  <div class="content">
+    <h2>🟢 The Solution: EZTeach</h2>
+    <p class="subtitle">One app that replaces 10+ tools — built for the modern classroom</p>
+    <div class="highlight">
+      <div class="grid grid-3">
+        <div style="text-align:center;">
+          <div class="stat" style="color:#6C63FF;">1</div>
+          <div class="stat-label">Single App</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="stat" style="color:#00D4AA;">K-12</div>
+          <div class="stat-label">All Grade Levels</div>
+        </div>
+        <div style="text-align:center;">
+          <div class="stat" style="color:#FF8C42;">5</div>
+          <div class="stat-label">User Roles</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-2" style="margin-top:30px;">
+      <div>
+        <h3>Teachers get:</h3>
+        <ul>
+          <li>AI lesson plan generator</li>
+          <li>Grading, attendance, behavior tracking</li>
+          <li>Parent communication tools</li>
+          <li>Bell schedules & calendar</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Students get:</h3>
+        <ul>
+          <li>100+ picture books with illustrations</li>
+          <li>Educational games & activities</li>
+          <li>Read Together multiplayer reading</li>
+          <li>Homework submission with photos</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">3 / 15</div>
+</div>
+
+<!-- SLIDE 4: AI Features -->
+<div class="slide">
+  <div class="content">
+    <h2>🤖 AI-Powered Intelligence</h2>
+    <p class="subtitle">EZTeach uses AI to save teachers hours every week</p>
+    <div class="grid grid-2" style="margin-top:24px;">
+      <div class="card">
+        <div class="icon">📝</div>
+        <h3>AI Lesson Plan Generator</h3>
+        <p>Select your subject, grade, topic, and learning style. AI generates a complete, standards-aligned lesson plan with objectives, activities, differentiation strategies, assessments, and homework — all in seconds.</p>
+        <ul>
+          <li>Bloom's Taxonomy-aligned objectives</li>
+          <li>4 activity types per lesson</li>
+          <li>Differentiation for 5 learner levels</li>
+          <li>CCSS/NGSS standards mapped</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>AI Study Plans</h3>
+        <p>Personalized study plans generated for each student based on their performance data, learning style, and upcoming assessments. Plans adapt as students progress.</p>
+        <ul>
+          <li>Tracks improvement over time</li>
+          <li>Sends notifications on milestones</li>
+          <li>Suggests resources and practice areas</li>
+          <li>Parent visibility into study plans</li>
+        </ul>
+      </div>
+    </div>
+    <div class="highlight" style="text-align:center; margin-top:20px;">
+      <p style="font-size:1.2em; color:#00D4AA; font-weight:600;">💡 The AI gets smarter with every use — learning from your school's patterns and preferences</p>
+    </div>
+  </div>
+  <div class="slide-num">4 / 15</div>
+</div>
+
+<!-- SLIDE 5: Reading Together -->
+<div class="slide">
+  <div class="content">
+    <h2>📖 Reading Together — Multiplayer Reading</h2>
+    <p class="subtitle">The first-ever shared reading experience in an education app</p>
+    <div class="grid grid-2" style="margin-top:24px;">
+      <div>
+        <h3>How It Works</h3>
+        <ul>
+          <li><strong>Create a Session</strong> — Teacher or student picks a book and generates a join code</li>
+          <li><strong>Join by Code</strong> — Classmates enter the 6-character code to join</li>
+          <li><strong>Read in Sync</strong> — Everyone follows along on the same page in real-time</li>
+          <li><strong>See Participants</strong> — Live participant bar shows who's reading</li>
+          <li><strong>Host Controls</strong> — Host can advance pages for the group</li>
+        </ul>
+        <div class="highlight" style="margin-top:20px;">
+          <p><strong>Impact on Learning:</strong></p>
+          <ul>
+            <li>Builds reading fluency through shared practice</li>
+            <li>Creates social accountability — students read more when peers are watching</li>
+            <li>Enables remote reading circles for homework and after-school programs</li>
+            <li>Supports struggling readers who benefit from hearing others read</li>
+            <li>Perfect for ESL/ELL students learning alongside native speakers</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#6C63FF11,#00D4AA11); text-align:center;">
+        <div style="font-size:5em; margin:20px 0;">📚👥</div>
+        <h3 style="color:#fff; font-size:1.8em;">Read Together</h3>
+        <p>Students join with a code and read the same picture book in real-time — like a virtual reading circle</p>
+        <div style="margin-top:20px;">
+          <span class="badge badge-teal">Live Sync</span>
+          <span class="badge badge-purple">100+ Books</span>
+          <span class="badge badge-orange">Join by Code</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">5 / 15</div>
+</div>
+
+<!-- SLIDE 6: Games & Activities -->
+<div class="slide">
+  <div class="content">
+    <h2>🎮 Educational Games & Interactive Learning</h2>
+    <p class="subtitle">Learning that feels like playing — students BEG for screen time</p>
+    <div class="grid grid-3" style="margin-top:24px;">
+      <div class="card">
+        <div class="icon">🧮</div>
+        <h3>Math Games</h3>
+        <p>Speed challenges, pattern recognition, and problem-solving games adapted to each grade level. Real-time leaderboards show student names.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📖</div>
+        <h3>Reading Adventures</h3>
+        <p>Interactive tap-to-discover books, reading by levels (Pre-K to 12th), and full scene illustrations that bring stories to life.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔬</div>
+        <h3>Science Explorations</h3>
+        <p>Virtual experiments and discovery-based learning activities that teach scientific method through play.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🏆</div>
+        <h3>Student Leaderboards</h3>
+        <p>Real names on leaderboards — motivates healthy competition. Track by week, month, or all-time across all games.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎨</div>
+        <h3>Electives Hub</h3>
+        <p>Art, Music, Dance, Band, P.E. — interactive step-by-step activities. No scoring pressure — pure learning and creative exploration.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📚</div>
+        <h3>Free Book Library</h3>
+        <p>Access to thousands of public domain classics plus 100+ picture books with real cover images and scene illustrations.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">6 / 15</div>
+</div>
+
+<!-- SLIDE 7: Teacher Portal -->
+<div class="slide">
+  <div class="content">
+    <h2>👩‍🏫 Teacher Portal — Everything in One Place</h2>
+    <div class="grid grid-3" style="margin-top:24px;">
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>Grades & Analytics</h3>
+        <p>Full gradebook for all subjects K-12 plus Electives. Analytics dashboard tracks trends, averages, and individual progress.</p>
+      </div>
+      <div class="card">
+        <div class="icon">✅</div>
+        <h3>Attendance</h3>
+        <p>One-tap attendance with present, absent, tardy, and excused options. Daily reports auto-generated for admin.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📋</div>
+        <h3>Behavior Tracking</h3>
+        <p>Log positive and negative behaviors. Generate write-ups with details. Parents receive notifications on behavior events.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📅</div>
+        <h3>Bell Schedules</h3>
+        <p>Customizable bell schedules per school. Teachers and students always know what period it is and when breaks occur.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📢</div>
+        <h3>Announcements</h3>
+        <p>School-wide announcements that reach teachers, students, and parents instantly. Pin important notices to the top.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📄</div>
+        <h3>Documents</h3>
+        <p>Upload and share class documents, worksheets, and resources. Students can submit homework photos and files.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">7 / 15</div>
+</div>
+
+<!-- SLIDE 8: Parent Portal -->
+<div class="slide">
+  <div class="content">
+    <h2>👨‍👩‍👧 Parent Portal — Stay Connected</h2>
+    <p class="subtitle">Parents are partners in education — give them the tools to help</p>
+    <div class="grid grid-2" style="margin-top:24px;">
+      <div>
+        <h3>What Parents See</h3>
+        <ul>
+          <li>📊 <strong>Real-time grades</strong> — No waiting for report cards</li>
+          <li>📝 <strong>Homework assignments</strong> — See what's due and what's turned in</li>
+          <li>📸 <strong>Photo submissions</strong> — Help kids photograph and submit homework</li>
+          <li>✅ <strong>Attendance records</strong> — Know if your child was marked present</li>
+          <li>📋 <strong>Behavior reports</strong> — Instant notifications on incidents</li>
+          <li>📢 <strong>School announcements</strong> — Never miss important dates</li>
+          <li>📚 <strong>Reading activity</strong> — See which books your child is reading</li>
+          <li>🎮 <strong>Game progress</strong> — Monitor educational game engagement</li>
+        </ul>
+      </div>
+      <div class="card" style="text-align:center; background:linear-gradient(135deg,#FF6B9D11,#FF8C4211);">
+        <div style="font-size:4em; margin:20px 0;">👨‍👩‍👧‍👦</div>
+        <h3 style="color:#fff;">Bridge the Gap</h3>
+        <p>Studies show that parent involvement increases student achievement by up to 30%. EZTeach makes involvement effortless.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">8 / 15</div>
+</div>
+
+<!-- SLIDE 9: School & District Management -->
+<div class="slide">
+  <div class="content">
+    <h2>🏫 School & District Management</h2>
+    <p class="subtitle">Complete administrative control for schools and districts</p>
+    <div class="grid grid-2" style="margin-top:24px;">
+      <div class="card">
+        <h3>Account Management</h3>
+        <ul>
+          <li>Add/remove students, teachers, and staff</li>
+          <li><strong>Filter students by grade level</strong> (Pre-K through 12th + Elective)</li>
+          <li>Search by name or student code</li>
+          <li>Bulk account operations</li>
+          <li>School-specific join codes</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Data & Security</h3>
+        <ul>
+          <li>Role-based access control (5 roles)</li>
+          <li>FERPA/COPPA compliant data handling</li>
+          <li>School-scoped data isolation</li>
+          <li>Secure student login system</li>
+          <li>Password management for minors</li>
+        </ul>
+      </div>
+    </div>
+    <div class="highlight">
+      <h3>District-Level Features</h3>
+      <p>Districts manage multiple schools from one dashboard. Aggregate analytics, unified billing, and cross-school data visibility give district administrators the big-picture view they need.</p>
+    </div>
+  </div>
+  <div class="slide-num">9 / 15</div>
+</div>
+
+<!-- SLIDE 10: Picture Books Library -->
+<div class="slide">
+  <div class="content">
+    <h2>📚 100+ Picture Books with Scene Illustrations</h2>
+    <p class="subtitle">A built-in library that brings stories to life</p>
+    <div class="grid grid-2" style="margin-top:24px;">
+      <div>
+        <h3>Library Features</h3>
+        <ul>
+          <li>100+ curated children's picture books</li>
+          <li>Dr. Seuss, Pete the Cat, Eric Carle & more</li>
+          <li>Searchable by author, title, category</li>
+          <li>Filter by reading level (Pre-K to 3rd Grade)</li>
+          <li>12 categories: Classic, Rhyming, Animals, STEM, Diversity, and more</li>
+        </ul>
+        <h3 style="margin-top:20px;">Rich Scene Illustrations</h3>
+        <ul>
+          <li>Multi-layered illustrated scenes per page</li>
+          <li>Contextual backgrounds (rainy, ocean, forest, night sky, etc.)</li>
+          <li>Animated mood particles and decorations</li>
+          <li>Scene descriptions and dialogue highlights</li>
+          <li>Read-aloud with text-to-speech narration</li>
+        </ul>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:3em; margin-bottom:10px;">🌧️🎩🐱</div>
+        <p style="font-style:italic;">"The sun did not shine. It was too wet to play..."</p>
+        <div style="margin:20px 0; padding:20px; background:rgba(100,100,255,0.1); border-radius:12px;">
+          <p>Each page features a full illustrated scene with:</p>
+          <p style="margin-top:8px;">🌈 Contextual sky &amp; weather<br>🏔️ Terrain &amp; ground elements<br>✨ Mood-based particle effects<br>🔊 Auto-narration</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">10 / 15</div>
+</div>
+
+<!-- SLIDE 11: Subscription Model -->
+<div class="slide">
+  <div class="content">
+    <h2>💰 Simple, Affordable Pricing</h2>
+    <div class="grid grid-3" style="margin-top:30px;">
+      <div class="card" style="border-color:#6C63FF55; text-align:center;">
+        <h3 style="color:#6C63FF;">Teacher Plan</h3>
+        <div class="stat" style="color:#6C63FF;">$4.99</div>
+        <div class="stat-label">/month</div>
+        <ul style="text-align:left; margin-top:16px;">
+          <li>Full teacher portal</li>
+          <li>AI lesson plans</li>
+          <li>Grades & attendance</li>
+          <li>Parent communication</li>
+          <li>All games & books</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:#00D4AA55; text-align:center; transform:scale(1.05);">
+        <span class="badge badge-teal">BEST VALUE</span>
+        <h3 style="color:#00D4AA; margin-top:8px;">School Plan</h3>
+        <div class="stat" style="color:#00D4AA;">$49.99</div>
+        <div class="stat-label">/month</div>
+        <ul style="text-align:left; margin-top:16px;">
+          <li>Everything in Teacher</li>
+          <li>Unlimited teacher accounts</li>
+          <li>Account management</li>
+          <li>School analytics</li>
+          <li>Priority support</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:#FF8C4255; text-align:center;">
+        <h3 style="color:#FF8C42;">District Plan</h3>
+        <div class="stat" style="color:#FF8C42;">Custom</div>
+        <div class="stat-label">pricing</div>
+        <ul style="text-align:left; margin-top:16px;">
+          <li>Everything in School</li>
+          <li>Multi-school management</li>
+          <li>District analytics</li>
+          <li>Dedicated support</li>
+          <li>Custom onboarding</li>
+        </ul>
+      </div>
+    </div>
+    <p style="text-align:center; margin-top:20px; color:#888;">Students and parents access for FREE through their school</p>
+  </div>
+  <div class="slide-num">11 / 15</div>
+</div>
+
+<!-- SLIDE 12: Competitive Advantage -->
+<div class="slide">
+  <div class="content">
+    <h2>⚡ Why EZTeach Wins</h2>
+    <table style="width:100%; border-collapse:collapse; margin-top:24px;">
+      <tr style="border-bottom:1px solid #333;">
+        <th style="text-align:left; padding:14px; color:#888;">Feature</th>
+        <th style="text-align:center; padding:14px; color:#00D4AA; font-size:1.1em;">EZTeach</th>
+        <th style="text-align:center; padding:14px; color:#888;">Google Classroom</th>
+        <th style="text-align:center; padding:14px; color:#888;">ClassDojo</th>
+        <th style="text-align:center; padding:14px; color:#888;">Seesaw</th>
+      </tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Grades & Gradebook</td><td style="text-align:center;">✅</td><td style="text-align:center;">⚠️</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">AI Lesson Plans</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Educational Games</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td><td style="text-align:center;">⚠️</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">100+ Picture Books</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Multiplayer Reading</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td><td style="text-align:center;">❌</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Parent Portal</td><td style="text-align:center;">✅</td><td style="text-align:center;">⚠️</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Attendance Tracking</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">⚠️</td><td style="text-align:center;">⚠️</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Behavior Tracking</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td></tr>
+      <tr style="border-bottom:1px solid #222;"><td style="padding:12px;">Homework Photo Upload</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">❌</td><td style="text-align:center;">✅</td></tr>
+      <tr><td style="padding:12px;">Native iOS App</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td><td style="text-align:center;">✅</td></tr>
+    </table>
+  </div>
+  <div class="slide-num">12 / 15</div>
+</div>
+
+<!-- SLIDE 13: Complete Feature List -->
+<div class="slide">
+  <div class="content">
+    <h2>📋 Complete Feature List</h2>
+    <div class="grid grid-3" style="margin-top:20px; font-size:0.95em;">
+      <div>
+        <h3>Teaching Tools</h3>
+        <ul>
+          <li>AI Lesson Plan Generator</li>
+          <li>Full K-12 Gradebook + Electives</li>
+          <li>Daily Attendance</li>
+          <li>Behavior Tracking & Write-ups</li>
+          <li>Bell Schedule Management</li>
+          <li>Class Roster Management</li>
+          <li>Student Profiles & Analytics</li>
+          <li>School Announcements</li>
+          <li>Document Sharing</li>
+          <li>Homework with Photo Upload</li>
+          <li>Calendar & Events</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Student Experience</h3>
+        <ul>
+          <li>100+ Picture Books</li>
+          <li>Reading by Levels (Pre-K–12)</li>
+          <li>Interactive Tap-to-Discover Books</li>
+          <li>Read Together (Multiplayer)</li>
+          <li>Free Classics Library (1000s)</li>
+          <li>Math Games & Challenges</li>
+          <li>Science Explorations</li>
+          <li>Electives: Art, Music, Dance, PE</li>
+          <li>Student Leaderboards (by name)</li>
+          <li>Read Aloud / Text-to-Speech</li>
+          <li>Scene Illustrations per Page</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Admin & Parents</h3>
+        <ul>
+          <li>School Account Management</li>
+          <li>Grade-Level Student Filtering</li>
+          <li>Parent Portal (grades, homework)</li>
+          <li>Improvement Notifications</li>
+          <li>District Multi-School Management</li>
+          <li>Role-Based Access (5 roles)</li>
+          <li>Searchable School Selection</li>
+          <li>School Join Codes</li>
+          <li>FERPA/COPPA Compliance</li>
+          <li>Subscription Management</li>
+          <li>Support & Help System</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">13 / 15</div>
+</div>
+
+<!-- SLIDE 14: Vision -->
+<div class="slide">
+  <div class="content">
+    <h2>🔮 The Future of EZTeach</h2>
+    <p class="subtitle">We're just getting started</p>
+    <div class="grid grid-2" style="margin-top:24px;">
+      <div class="card">
+        <h3>Coming Soon</h3>
+        <ul>
+          <li>🎥 Video meetings built-in</li>
+          <li>🌐 Multi-language support</li>
+          <li>📱 Android version</li>
+          <li>🧠 AI that learns from YOUR school's data</li>
+          <li>📈 Advanced analytics dashboards</li>
+          <li>🤝 Cross-school reading competitions</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Our Mission</h3>
+        <p style="font-size:1.15em; line-height:1.8;">Every child deserves access to engaging, modern learning tools. Every teacher deserves technology that saves time instead of adding to their workload. Every parent deserves transparency into their child's education.</p>
+        <p style="margin-top:16px; font-size:1.15em; color:#00D4AA; font-weight:600;">EZTeach makes this possible — all in one app.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">14 / 15</div>
+</div>
+
+<!-- SLIDE 15: Call to Action -->
+<div class="slide" style="text-align:center;">
+  <div class="content">
+    <div style="font-size:4em; margin-bottom:20px;">🚀</div>
+    <h1 style="font-size:3.5em;">Let's Transform Education Together</h1>
+    <p class="subtitle" style="font-size:1.4em; margin-bottom:40px;">EZTeach — The Future of Learning, All in One</p>
+    <div style="margin:30px 0;">
+      <span class="badge badge-purple" style="font-size:1.1em; padding:10px 20px;">📱 Available on iOS</span>
+      <span class="badge badge-teal" style="font-size:1.1em; padding:10px 20px;">🆓 Free for Students</span>
+      <span class="badge badge-orange" style="font-size:1.1em; padding:10px 20px;">🏫 School Plans Available</span>
+    </div>
+    <p style="font-size:1.3em; color:#00D4AA; font-weight:600; margin-top:40px;">Questions? Let's talk.</p>
+    <p style="color:#888; margin-top:10px;">Download from the App Store · Visit ezteach.app</p>
+  </div>
+  <div class="slide-num">15 / 15</div>
+</div>
+
+</body>
+</html>

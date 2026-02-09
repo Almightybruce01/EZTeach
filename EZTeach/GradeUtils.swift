@@ -8,8 +8,8 @@
 import Foundation
 
 enum GradeUtils {
-    // 0 = Pre-K, 1 = K, 2 = 1st ... 13 = 12th
-    static let allGrades: [Int] = Array(0...13)
+    // 0 = Pre-K, 1 = K, 2 = 1st ... 13 = 12th, 14 = Elective
+    static let allGrades: [Int] = Array(0...14)
 
     static func label(_ grade: Int) -> String {
         switch grade {
@@ -27,6 +27,7 @@ enum GradeUtils {
         case 11: return "10th Grade"
         case 12: return "11th Grade"
         case 13: return "12th Grade"
+        case 14: return "Elective"
         default: return "Grade \(grade)"
         }
     }

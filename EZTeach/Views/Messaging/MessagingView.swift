@@ -323,38 +323,70 @@ struct NewConversationView: View {
     }
     
     private func loadUsers() {
+        guard let currentUid = Auth.auth().currentUser?.uid else {
+            isLoading = false
+            return
+        }
+        var allUsers: [UserInfo] = []
+        let group = DispatchGroup()
+
         // Load teachers
+        group.enter()
         db.collection("teachers")
             .whereField("schoolId", isEqualTo: schoolId)
             .getDocuments { snap, _ in
-                let teachers = snap?.documents.compactMap { doc -> UserInfo? in
+                for doc in snap?.documents ?? [] {
                     let data = doc.data()
-                    return UserInfo(
-                        id: data["userId"] as? String ?? "",
-                        name: "\(data["firstName"] as? String ?? "") \(data["lastName"] as? String ?? "")",
-                        role: "teacher"
-                    )
-                } ?? []
-                
-                // Load parents
-                db.collection("parents")
-                    .whereField("schoolIds", arrayContains: schoolId)
-                    .getDocuments { parentSnap, _ in
-                        let parents = parentSnap?.documents.compactMap { doc -> UserInfo? in
-                            let data = doc.data()
-                            return UserInfo(
-                                id: data["userId"] as? String ?? "",
-                                name: "\(data["firstName"] as? String ?? "") \(data["lastName"] as? String ?? "")",
-                                role: "parent"
-                            )
-                        } ?? []
-                        
-                        // Combine and filter out current user
-                        let currentUid = Auth.auth().currentUser?.uid
-                        users = (teachers + parents).filter { $0.id != currentUid }
-                        isLoading = false
+                    let uid = data["userId"] as? String ?? doc.documentID
+                    if uid != currentUid {
+                        let name = "\(data["firstName"] as? String ?? "") \(data["lastName"] as? String ?? "")".trimmingCharacters(in: .whitespaces)
+                        allUsers.append(UserInfo(id: uid, name: name.isEmpty ? "Teacher" : name, role: "teacher"))
                     }
+                }
+                group.leave()
             }
+
+        // Load parents
+        group.enter()
+        db.collection("parents")
+            .whereField("schoolIds", arrayContains: schoolId)
+            .getDocuments { snap, _ in
+                for doc in snap?.documents ?? [] {
+                    let data = doc.data()
+                    let uid = data["userId"] as? String ?? doc.documentID
+                    if uid != currentUid {
+                        let name = "\(data["firstName"] as? String ?? "") \(data["lastName"] as? String ?? "")".trimmingCharacters(in: .whitespaces)
+                        allUsers.append(UserInfo(id: uid, name: name.isEmpty ? "Parent" : name, role: "parent"))
+                    }
+                }
+                group.leave()
+            }
+
+        // Load school admins, librarians, subs, janitors, district — all non-student, non-teacher users
+        group.enter()
+        db.collection("users")
+            .whereField("activeSchoolId", isEqualTo: schoolId)
+            .getDocuments { snap, _ in
+                for doc in snap?.documents ?? [] {
+                    let data = doc.data()
+                    let uid = doc.documentID
+                    let role = data["role"] as? String ?? ""
+                    // Exclude students, teachers (already loaded), parents (already loaded), and self
+                    if uid != currentUid && role != "student" && role != "teacher" && role != "parent" {
+                        let name = "\(data["firstName"] as? String ?? "") \(data["lastName"] as? String ?? "")".trimmingCharacters(in: .whitespaces)
+                        allUsers.append(UserInfo(id: uid, name: name.isEmpty ? role.capitalized : name, role: role))
+                    }
+                }
+                group.leave()
+            }
+
+        group.notify(queue: .main) {
+            // Deduplicate by id
+            var seen = Set<String>()
+            users = allUsers.filter { seen.insert($0.id).inserted }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            isLoading = false
+        }
     }
     
     private func createConversation() {

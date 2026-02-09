@@ -27,6 +27,18 @@ final class GameAudioService: NSObject, ObservableObject {
         isMuted = UserDefaults.standard.bool(forKey: "gameAudioMuted")
         readAloudEnabled = UserDefaults.standard.object(forKey: "gameReadAloudEnabled") as? Bool ?? true
         backgroundMusicEnabled = UserDefaults.standard.object(forKey: "gameBgMusicEnabled") as? Bool ?? true
+        configureAudioSession()
+    }
+    
+    /// Configure audio session for speech playback — required on iOS for TTS to produce sound
+    private func configureAudioSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers, .mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            print("GameAudioService: Failed to configure audio session — \(error.localizedDescription)")
+        }
     }
     
     func persistSettings() {
@@ -40,6 +52,7 @@ final class GameAudioService: NSObject, ObservableObject {
     /// Standard speak (single utterance)
     func speak(_ text: String, rate: Float = 0.5) {
         guard readAloudEnabled, !isMuted, !text.isEmpty else { return }
+        ensureAudioSession()
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
@@ -51,6 +64,7 @@ final class GameAudioService: NSObject, ObservableObject {
     /// Splits on . ! ? and adds postUtteranceDelay for breathing/pacing.
     func speakFluently(_ text: String, rate: Float = 0.45) {
         guard readAloudEnabled, !isMuted, !text.isEmpty else { return }
+        ensureAudioSession()
         synthesizer.stopSpeaking(at: .immediate)
         let sentences = text.components(separatedBy: CharacterSet(charactersIn: ".!?"))
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -78,6 +92,15 @@ final class GameAudioService: NSObject, ObservableObject {
     
     func speakInstructions(_ text: String) {
         speakFluently(text, rate: 0.45)
+    }
+    
+    /// Re-activate the audio session if needed (e.g. after phone call or interruption)
+    private func ensureAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("GameAudioService: Could not activate audio session — \(error)")
+        }
     }
     
     func stopSpeaking() {

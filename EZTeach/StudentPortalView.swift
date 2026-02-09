@@ -16,7 +16,7 @@ struct StudentPortalView: View {
     @State private var loadFailed = false
 
     enum StudentPage: String, CaseIterable {
-        case home, homework, grades, classes, schoolInfo, schoolLibrary, games, freeBooks, leaderboard, electives, account
+        case home, homework, grades, classes, schoolInfo, schoolLibrary, games, freeBooks, leaderboard, electives, talkerBoard, account
         var title: String {
             switch self {
             case .home: return "Home"
@@ -29,6 +29,7 @@ struct StudentPortalView: View {
             case .freeBooks: return "Free Books"
             case .leaderboard: return "Leaderboard"
             case .electives: return "Electives"
+            case .talkerBoard: return "Talker Board"
             case .account: return "My Account"
             }
         }
@@ -103,7 +104,7 @@ struct StudentPortalView: View {
     private func currentPage(_ s: Student) -> some View {
         switch selectedPage {
         case .home: StudentHomeTab(student: s, schoolName: schoolName, onSelectGames: { selectedPage = .games })
-        case .homework: StudentHomeworkTab(studentId: s.id, schoolId: s.schoolId)
+        case .homework: EnhancedStudentHomeworkTab(studentId: s.id, studentName: "\(s.firstName) \(s.lastName)", schoolId: s.schoolId, submitterRole: "student")
         case .grades: StudentGradesTab(studentId: s.id, schoolId: s.schoolId)
         case .classes: StudentClassesTab(studentId: s.id, schoolId: s.schoolId)
         case .schoolInfo: StudentSchoolInfoTab(schoolId: s.schoolId)
@@ -112,6 +113,7 @@ struct StudentPortalView: View {
         case .freeBooks: FreeBooksView()
         case .leaderboard: LeaderboardView()
         case .electives: ElectivesHubView()
+        case .talkerBoard: TalkerBoardView(schoolId: s.schoolId, userRole: "student", studentId: s.id, studentName: s.fullName)
         case .account: StudentAccountView(student: s, schoolName: schoolName)
         }
     }
@@ -167,14 +169,26 @@ struct StudentHomeTab: View {
                     }
                     .padding(.top, 20)
 
+                    // Quick Stats Card
+                    HStack(spacing: 16) {
+                        QuickStatCard(icon: "star.fill", value: "\(student.gradeLevel)", label: "Grade", color: EZTeachColors.warmYellow)
+                        QuickStatCard(icon: "book.fill", value: "Active", label: "Status", color: EZTeachColors.tronGreen)
+                        QuickStatCard(icon: "trophy.fill", value: "Learning", label: "Mode", color: EZTeachColors.brightTeal)
+                    }
+                    
                     if let onSelectGames {
                         Button(action: onSelectGames) {
                             HStack(spacing: 16) {
-                                Image(systemName: "gamecontroller.fill")
-                                    .font(.system(size: 36))
-                                    .foregroundColor(EZTeachColors.brightTeal)
+                                ZStack {
+                                    Circle()
+                                        .fill(EZTeachColors.brightTeal.opacity(0.2))
+                                        .frame(width: 56, height: 56)
+                                    Image(systemName: "gamecontroller.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(EZTeachColors.brightTeal)
+                                }
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("EZLearning")
+                                    Text("EZLearning Games")
                                         .font(.headline.weight(.bold))
                                         .foregroundColor(.white)
                                     Text("Play math, reading, puzzles & more")
@@ -182,17 +196,29 @@ struct StudentHomeTab: View {
                                         .foregroundColor(.white.opacity(0.8))
                                 }
                                 Spacer()
-                                Image(systemName: "chevron.right")
+                                Image(systemName: "chevron.right.circle.fill")
+                                    .font(.title2)
                                     .foregroundColor(EZTeachColors.brightTeal)
                             }
                             .padding(20)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .stroke(EZTeachColors.brightTeal.opacity(0.6), lineWidth: 2)
-                                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.white.opacity(0.05)))
+                                    .fill(LinearGradient(colors: [EZTeachColors.brightTeal.opacity(0.15), Color.white.opacity(0.05)], startPoint: .leading, endPoint: .trailing))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(EZTeachColors.brightTeal.opacity(0.5), lineWidth: 2)
                             )
                         }
                         .buttonStyle(.plain)
+                    }
+                    
+                    // Quick Access Grid
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        QuickAccessCard(icon: "book.closed.fill", title: "Free Books", subtitle: "Read classics", color: Color(red: 0.6, green: 0.4, blue: 0.2))
+                        QuickAccessCard(icon: "paintpalette.fill", title: "Electives", subtitle: "Art, Music, PE", color: EZTeachColors.tronOrange)
+                        QuickAccessCard(icon: "graduationcap.fill", title: "My Grades", subtitle: "View progress", color: EZTeachColors.softPurple)
+                        QuickAccessCard(icon: "list.bullet.rectangle", title: "Homework", subtitle: "Assignments", color: EZTeachColors.tronPink)
                     }
 
                     if !announcements.isEmpty {
@@ -233,7 +259,7 @@ struct StudentHomeTab: View {
                         .filter { ($0.data()["teachersOnly"] as? Bool ?? false) == false && ($0.data()["isActive"] as? Bool ?? true) }
                         .map { doc in
                             let d = doc.data()
-                            return Announcement(id: doc.documentID, schoolId: student.schoolId, title: d["title"] as? String ?? "", body: d["body"] as? String ?? "", attachmentUrl: d["attachmentUrl"] as? String, isActive: true)
+                            return Announcement(id: doc.documentID, schoolId: student.schoolId, title: d["title"] as? String ?? "", body: d["body"] as? String ?? "", attachmentUrl: d["attachmentUrl"] as? String, isActive: true, authorRole: d["authorRole"] as? String ?? "school", authorName: d["authorName"] as? String ?? "", createdAt: (d["createdAt"] as? Timestamp)?.dateValue())
                         }
                     DispatchQueue.main.async { announcements = ann }
                 }
@@ -297,6 +323,75 @@ private struct StudentEventRow: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(EZTeachColors.brightTeal.opacity(0.4), lineWidth: 1)
                 .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.05)))
+        )
+    }
+}
+
+// MARK: - Quick Stat Card
+private struct QuickStatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(color.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Quick Access Card
+private struct QuickAccessCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 40, height: 40)
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(color)
+            }
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+            Text(subtitle)
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(color.opacity(0.25), lineWidth: 1)
         )
     }
 }

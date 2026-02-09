@@ -23,6 +23,8 @@ struct TeacherPortalView: View {
     @State private var officeHours: String = ""
     @State private var email: String = ""
     @State private var photoUrl: String = ""
+    @State private var teacherGrade: Int = -1
+    @State private var teacherClassName: String = ""
 
     private let db = Firestore.firestore()
 
@@ -37,6 +39,7 @@ struct TeacherPortalView: View {
         case roster = "Class Roster"
         case grades = "Grades"
         case subPlans = "Sub Plans"
+        case subNotes = "Sub Notes"
         case classes = "My Classes"
         case schedule = "Schedule"
     }
@@ -110,7 +113,9 @@ struct TeacherPortalView: View {
                 currentRoomNumber: roomNumber,
                 currentOfficeHours: officeHours,
                 currentEmail: email,
-                currentPhotoUrl: photoUrl.isEmpty ? nil : photoUrl
+                currentPhotoUrl: photoUrl.isEmpty ? nil : photoUrl,
+                currentGrade: teacherGrade,
+                currentClassName: teacherClassName
             ) {
                 loadTeacherProfile()
             }
@@ -234,6 +239,8 @@ struct TeacherPortalView: View {
             TeacherGradesHubView(teacher: teacher)
         case .subPlans:
             TeacherSubPlansView(teacher: teacher)
+        case .subNotes:
+            TeacherSubNotesView(teacher: teacher)
         case .classes:
             ClassesHubView(teacherId: teacher.userId)
         case .schedule:
@@ -248,6 +255,7 @@ struct TeacherPortalView: View {
         case .roster: return "list.bullet.clipboard"
         case .grades: return "chart.bar.doc.horizontal"
         case .subPlans: return "doc.text.fill"
+        case .subNotes: return "note.text"
         case .classes: return "books.vertical.fill"
         case .schedule: return "calendar"
         }
@@ -262,6 +270,8 @@ struct TeacherPortalView: View {
             officeHours = data["officeHours"] as? String ?? ""
             email = data["email"] as? String ?? ""
             photoUrl = data["photoUrl"] as? String ?? ""
+            teacherGrade = data["grade"] as? Int ?? (data["grades"] as? [Int])?.first ?? -1
+            teacherClassName = data["className"] as? String ?? ""
         }
     }
 }
@@ -623,6 +633,209 @@ struct TeacherGradesHubView: View {
                         classType: ct
                     )
                 }.sorted { $0.name < $1.name } ?? []
+                isLoading = false
+            }
+    }
+}
+
+// MARK: - Teacher Sub Notes View (notes left by substitutes)
+struct TeacherSubNotesView: View {
+    let teacher: Teacher
+    
+    @State private var studentNotes: [SubStudentNote] = []
+    @State private var dailyNotes: [DailySubNote] = []
+    @State private var isLoading = true
+    @State private var selectedTab = 0
+    
+    private let db = Firestore.firestore()
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Tab selector
+            Picker("Notes Type", selection: $selectedTab) {
+                Text("Student Notes").tag(0)
+                Text("Daily Summaries").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .padding()
+            
+            if isLoading {
+                Spacer()
+                ProgressView()
+                Spacer()
+            } else {
+                if selectedTab == 0 {
+                    studentNotesSection
+                } else {
+                    dailyNotesSection
+                }
+            }
+        }
+        .navigationTitle("Sub Notes")
+        .onAppear { loadNotes() }
+    }
+    
+    private var studentNotesSection: some View {
+        Group {
+            if studentNotes.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("No Student Notes")
+                        .font(.headline)
+                    Text("When substitutes leave notes about students, they'll appear here.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+            } else {
+                List {
+                    ForEach(studentNotes) { note in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: note.category.icon)
+                                    .foregroundColor(note.category.color)
+                                Text(note.studentName)
+                                    .font(.headline)
+                                Spacer()
+                                Text(note.category.rawValue)
+                                    .font(.caption2)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(note.category.color)
+                                    .cornerRadius(6)
+                            }
+                            
+                            Text(note.note)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            HStack {
+                                Text("By: \(note.subName)")
+                                Spacer()
+                                Text(note.date, style: .date)
+                            }
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var dailyNotesSection: some View {
+        Group {
+            if dailyNotes.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("No Daily Summaries")
+                        .font(.headline)
+                    Text("When substitutes leave daily summaries, they'll appear here.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+            } else {
+                List {
+                    ForEach(dailyNotes) { note in
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(note.date, style: .date)
+                                        .font(.headline)
+                                    Text("Substitute: \(note.subName)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                // Rating
+                                HStack(spacing: 2) {
+                                    ForEach(1...5, id: \.self) { i in
+                                        Image(systemName: i <= note.rating ? "star.fill" : "star")
+                                            .font(.caption)
+                                            .foregroundColor(i <= note.rating ? .yellow : .gray)
+                                    }
+                                }
+                            }
+                            
+                            Divider()
+                            
+                            if !note.summary.isEmpty {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Summary")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.gray)
+                                    Text(note.summary)
+                                        .font(.subheadline)
+                                }
+                            }
+                            
+                            if !note.lessonsCompleted.isEmpty {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Lessons Completed")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.gray)
+                                    Text(note.lessonsCompleted)
+                                        .font(.subheadline)
+                                }
+                            }
+                            
+                            if !note.behaviorSummary.isEmpty {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Behavior")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.gray)
+                                    Text(note.behaviorSummary)
+                                        .font(.subheadline)
+                                }
+                            }
+                            
+                            if !note.issues.isEmpty {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Issues")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.red)
+                                    Text(note.issues)
+                                        .font(.subheadline)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func loadNotes() {
+        isLoading = true
+        
+        // Load student notes for this teacher's classes
+        db.collection("subStudentNotes")
+            .whereField("teacherId", isEqualTo: teacher.id)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 50)
+            .getDocuments { snap, _ in
+                studentNotes = snap?.documents.compactMap { SubStudentNote.fromDocument($0) } ?? []
+            }
+        
+        // Load daily notes for this teacher
+        db.collection("dailySubNotes")
+            .whereField("teacherId", isEqualTo: teacher.id)
+            .order(by: "date", descending: true)
+            .limit(to: 20)
+            .getDocuments { snap, _ in
+                dailyNotes = snap?.documents.compactMap { DailySubNote.fromDocument($0) } ?? []
                 isLoading = false
             }
     }

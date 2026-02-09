@@ -635,10 +635,6 @@ struct ParentChildDetailView: View {
                 Text(GradeUtils.label(student.gradeLevel))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                
-                Text("Student ID: \(student.studentCode)")
-                    .font(.caption.monospaced())
-                    .foregroundColor(.secondary)
             }
         }
         .padding()
@@ -654,6 +650,10 @@ struct ParentChildDetailView: View {
                 .font(.headline)
             
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                quickLinkCard(icon: "doc.text.fill", title: "Homework", color: EZTeachColors.brightTeal) {
+                    ParentHomeworkView(student: student)
+                }
+                
                 quickLinkCard(icon: "chart.bar.doc.horizontal", title: "All Grades", color: EZTeachColors.accent) {
                     ParentAllGradesView(student: student, classes: classes)
                 }
@@ -668,6 +668,10 @@ struct ParentChildDetailView: View {
                 
                 quickLinkCard(icon: "bell", title: "Announcements", color: EZTeachColors.navy) {
                     ParentAnnouncementsView(schoolId: student.schoolId)
+                }
+                
+                quickLinkCard(icon: "timer", title: "Active Time", color: .teal) {
+                    ActiveTimeView(schoolId: student.schoolId, userRole: "parent", specificStudentId: student.id)
                 }
             }
         }
@@ -1433,10 +1437,28 @@ struct ParentAnnouncementsView: View {
                         title: d["title"] as? String ?? "",
                         body: d["body"] as? String ?? "",
                         attachmentUrl: d["attachmentUrl"] as? String,
-                        isActive: d["isActive"] as? Bool ?? true
+                        isActive: d["isActive"] as? Bool ?? true,
+                        authorRole: d["authorRole"] as? String ?? "school",
+                        authorName: d["authorName"] as? String ?? "",
+                        createdAt: (d["createdAt"] as? Timestamp)?.dateValue()
                     )
                 } ?? []
                 isLoading = false
             }
+    }
+}
+
+// MARK: - Parent Homework View
+struct ParentHomeworkView: View {
+    let student: Student
+    
+    var body: some View {
+        EnhancedStudentHomeworkTab(
+            studentId: student.id,
+            studentName: student.fullName,
+            schoolId: student.schoolId,
+            submitterRole: "parent"
+        )
+        .navigationTitle("\(student.firstName)'s Homework")
     }
 }

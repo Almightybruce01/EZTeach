@@ -129,37 +129,69 @@ struct LeaderboardRow: View {
     let rank: LeaderboardRank
     let isCurrentUser: Bool
     
+    /// Build a subtitle like "Lincoln Elementary • 5th Grade"
+    private var subtitle: String {
+        let parts = [rank.schoolName, rank.grade].filter { !$0.isEmpty }
+        return parts.joined(separator: " • ")
+    }
+    
     var body: some View {
-        HStack(spacing: 16) {
-            Text("#\(rank.rank)")
-                .font(.system(size: 20, weight: .black, design: .monospaced))
-                .foregroundColor(rankColor)
-                .frame(width: 44, height: 44)
-                .background(rankColor.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+        HStack(spacing: 14) {
+            // Rank badge
+            ZStack {
+                if rank.rank <= 3 {
+                    rankIcon
+                } else {
+                    Text("#\(rank.rank)")
+                        .font(.system(size: 16, weight: .black, design: .monospaced))
+                        .foregroundColor(rankColor)
+                }
+            }
+            .frame(width: 46, height: 46)
+            .background(rankColor.opacity(0.18))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text(rank.displayName)
-                    .font(.headline)
-                    .foregroundColor(EZTeachColors.textDark)
-                if isCurrentUser {
-                    Text("You")
-                        .font(.caption)
-                        .foregroundColor(EZTeachColors.brightTeal)
+            // Name + school/grade
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(rank.displayName)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(EZTeachColors.textDark)
+                    if isCurrentUser {
+                        Text("YOU")
+                            .font(.system(size: 9, weight: .heavy))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(EZTeachColors.brightTeal)
+                            .clipShape(Capsule())
+                    }
+                }
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
             }
             
             Spacer()
             
-            Text("\(rank.score)")
-                .font(.system(size: 22, weight: .bold, design: .monospaced))
-                .foregroundColor(EZTeachColors.textDark)
+            // Score
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(rank.score)")
+                    .font(.system(size: 22, weight: .bold, design: .monospaced))
+                    .foregroundColor(EZTeachColors.textDark)
+                Text("pts")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
         }
-        .padding(16)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(isCurrentUser ? EZTeachColors.brightTeal.opacity(0.12) : Color.white.opacity(0.8))
-                .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+                .fill(isCurrentUser ? EZTeachColors.brightTeal.opacity(0.10) : Color.white.opacity(0.85))
+                .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
@@ -167,6 +199,28 @@ struct LeaderboardRow: View {
         )
         .padding(.horizontal)
         .padding(.vertical, 4)
+    }
+    
+    @ViewBuilder
+    private var rankIcon: some View {
+        switch rank.rank {
+        case 1:
+            Image(systemName: "crown.fill")
+                .font(.system(size: 20))
+                .foregroundColor(EZTeachColors.warmYellow)
+        case 2:
+            Image(systemName: "medal.fill")
+                .font(.system(size: 18))
+                .foregroundColor(Color.gray)
+        case 3:
+            Image(systemName: "medal.fill")
+                .font(.system(size: 18))
+                .foregroundColor(EZTeachColors.softOrange)
+        default:
+            Text("#\(rank.rank)")
+                .font(.system(size: 16, weight: .black, design: .monospaced))
+                .foregroundColor(rankColor)
+        }
     }
     
     private var rankColor: Color {

@@ -61,6 +61,10 @@ struct SideMenuView: View {
                     menuItem("School Library", icon: "books.vertical.fill", isSelected: false) {
                         open(.schoolLibrary)
                     }
+                    
+                    menuItem("Movies", icon: "play.rectangle.fill") {
+                        open(.movies)
+                    }
 
                     menuItem("Grades", icon: "list.clipboard.fill", isSelected: selectedPage == .grades) {
                         go(.grades)
@@ -76,6 +80,8 @@ struct SideMenuView: View {
                         menuItem("My Children", icon: "figure.2.and.child.holdinghands") {
                             open(.parentPortal)
                         }
+                        menuItem("AI Study Plans", icon: "sparkles", badgeColor: .green) { open(.aiStudyPlan) }
+                        menuItem("Active Time", icon: "timer") { open(.activeTime) }
                         menuItem("Bus Tracking", icon: "bus.fill") { open(.busTracking) }
                         menuItem("Lunch Menu", icon: "fork.knife") { open(.lunchMenu) }
                         menuItem("Video Meetings", icon: "video.fill") { open(.videoMeetings) }
@@ -88,12 +94,15 @@ struct SideMenuView: View {
 
                         sectionLabel("CLASSROOM")
                         
-                        if role == "teacher" {
-                            menuItem("Lesson Plans", icon: "doc.text.fill") { open(.lessonPlans) }
+                        if role == "teacher" || role == "school" {
+                            menuItem("AI Lesson Plans", icon: "sparkles", badgeColor: .purple) { open(.aiLessonPlans) }
                         }
+                        menuItem("Standards Explorer", icon: "list.clipboard.fill") { open(.standardsExplorer) }
                         menuItem("Homework", icon: "book.fill") { open(.homework) }
                         menuItem("Behavior", icon: "star.fill") { open(.behavior) }
                         menuItem("Activities & Links", icon: "link") { open(.activities) }
+                        menuItem("Gym Games", icon: "figure.run") { open(.gymGames) }
+                        menuItem("Talker Board", icon: "bubble.left.and.text.bubble.right.fill") { open(.talkerBoard) }
 
                         Divider()
                             .padding(.vertical, 12)
@@ -101,6 +110,10 @@ struct SideMenuView: View {
                         sectionLabel("MANAGEMENT")
 
                         menuItem("Students", icon: "person.3.fill") { open(.students) }
+                        menuItem("Student Write-Ups", icon: "doc.text.fill") { open(.studentWriteUps) }
+                        if role == "sub" {
+                            menuItem("Sub Notes", icon: "note.text") { open(.subNotes) }
+                        }
                         menuItem("Sub Requests", icon: "calendar.badge.clock") { open(.subRequests) }
                         if role == "teacher" {
                             menuItem("My Availability", icon: "calendar.badge.checkmark") { open(.availability) }
@@ -113,11 +126,14 @@ struct SideMenuView: View {
                             Divider()
                                 .padding(.vertical, 12)
                             sectionLabel("SCHOOL ADMIN")
+                            menuItem("Plans & Billing", icon: "creditcard.fill", badgeColor: .green) { open(.plansBilling) }
                             menuItem("Default Password Report", icon: "exclamationmark.shield.fill", badgeColor: .orange) { open(.defaultPasswordReport) }
+                            menuItem("Active Time", icon: "timer", badgeColor: .teal) { open(.activeTime) }
                             menuItem("Analytics", icon: "chart.bar.fill") { open(.analytics) }
                             menuItem("Attendance Stats", icon: "chart.pie.fill") { open(.attendanceAnalytics) }
                             menuItem("Bus Routes", icon: "bus.fill") { open(.busTracking) }
                             menuItem("Lunch Menu", icon: "fork.knife") { open(.lunchMenu) }
+                            menuItem("Add Book by Photo", icon: "camera.fill") { open(.addBookByPhoto) }
                             menuItem("Emergency Alerts", icon: "exclamationmark.triangle.fill", badgeColor: .red) { open(.emergencyAlerts) }
                             menuItem("Sub Ranking", icon: "list.number") { open(.subRanking) }
                         }

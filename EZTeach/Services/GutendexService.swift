@@ -128,7 +128,6 @@ private func parseOpenLibraryResponse(_ data: Data) -> [GutendexBook]? {
         
         let authors: [String] = doc["author_name"] as? [String] ?? []
         let subjects: [String] = doc["subject"] as? [String] ?? []
-        let key = doc["key"] as? String ?? ""
         let coverId = doc["cover_i"] as? Int
         let iaIds = doc["ia"] as? [String] ?? []
         let firstIa = iaIds.first

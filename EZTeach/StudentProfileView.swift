@@ -32,17 +32,23 @@ struct StudentProfileView: View {
                 // Student header card
                 headerCard
                 
-                // Student code card
-                studentCodeCard
+                // Student code card — only visible to school, teacher, district
+                if canEdit {
+                    studentCodeCard
+                }
                 
                 // Quick links
                 quickLinksSection
                 
-                // Linked parents
-                linkedParentsSection
+                // Linked parents (only staff)
+                if canEdit {
+                    linkedParentsSection
+                }
                 
                 // Notes section
-                notesSection
+                if canEdit {
+                    notesSection
+                }
             }
             .padding()
         }
@@ -92,9 +98,12 @@ struct StudentProfileView: View {
                 Text(student.fullName)
                     .font(.title2.bold())
                 
-                Text("Student ID: \(student.studentCode)")
-                    .font(.subheadline.monospaced())
-                    .foregroundColor(EZTeachColors.accent)
+                // Only show student code to school/teacher/district
+                if canEdit {
+                    Text("Student ID: \(student.studentCode)")
+                        .font(.subheadline.monospaced())
+                        .foregroundColor(EZTeachColors.accent)
+                }
                 
                 Text(GradeUtils.label(student.gradeLevel))
                     .font(.subheadline)

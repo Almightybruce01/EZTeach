@@ -18,9 +18,29 @@ struct FlipBookReaderView: View {
     @State private var showCover = true
     @State private var flipDirection: FlipDirection = .forward
     @State private var isFlipping = false
+    @State private var useSinglePageMode = true  // Default to single page for better reading
+    @State private var fontSize: CGFloat = 18
+    @State private var showSettings = false
+    @State private var autoScrollEnabled = false
+    @State private var bookmarkedPages: Set<Int> = []
+    @State private var nightMode = false
+    @State private var showTableOfContents = false
     
     private var bookColor: Color {
         colorForSubject(book.subjects.first ?? book.title)
+    }
+    
+    private var readingProgress: Double {
+        guard pages.count > 0 else { return 0 }
+        return Double(currentPage + 1) / Double(pages.count)
+    }
+    
+    private var backgroundColor: Color {
+        nightMode ? Color(red: 0.1, green: 0.1, blue: 0.12) : Color(red: 0.96, green: 0.94, blue: 0.88)
+    }
+    
+    private var textColor: Color {
+        nightMode ? Color(red: 0.9, green: 0.88, blue: 0.82) : Color(red: 0.2, green: 0.15, blue: 0.1)
     }
     
     var body: some View {
@@ -75,8 +95,28 @@ struct FlipBookReaderView: View {
     // MARK: - Book Content View
     private var bookContentView: some View {
         VStack(spacing: 0) {
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(bookColor.opacity(0.2))
+                        .frame(height: 3)
+                    
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [bookColor, bookColor.opacity(0.7)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * readingProgress, height: 3)
+                }
+            }
+            .frame(height: 3)
+            
             // Top bar
-            HStack {
+            HStack(spacing: 16) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
@@ -85,19 +125,211 @@ struct FlipBookReaderView: View {
                 
                 Spacer()
                 
-                Text(book.title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                VStack(spacing: 2) {
+                    Text(book.title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(nightMode ? .white.opacity(0.8) : .secondary)
+                        .lineLimit(1)
+                    Text("Page \(currentPage + 1) of \(pages.count) • \(Int(readingProgress * 100))%")
+                        .font(.caption2)
+                        .foregroundColor(nightMode ? .white.opacity(0.5) : .secondary.opacity(0.7))
+                }
                 
                 Spacer()
                 
-                Text("Page \(currentPage + 1) of \(pages.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                // Bookmark button
+                Button {
+                    if bookmarkedPages.contains(currentPage) {
+                        bookmarkedPages.remove(currentPage)
+                    } else {
+                        bookmarkedPages.insert(currentPage)
+                    }
+                } label: {
+                    Image(systemName: bookmarkedPages.contains(currentPage) ? "bookmark.fill" : "bookmark")
+                        .font(.title3)
+                        .foregroundColor(bookmarkedPages.contains(currentPage) ? .orange : bookColor)
+                }
+                
+                // Settings button
+                Button {
+                    showSettings.toggle()
+                } label: {
+                    Image(systemName: "textformat.size")
+                        .font(.title3)
+                        .foregroundColor(bookColor)
+                }
+                
+                // Reading mode toggle
+                Button {
+                    withAnimation(.spring()) {
+                        useSinglePageMode.toggle()
+                    }
+                } label: {
+                    Image(systemName: useSinglePageMode ? "book.fill" : "book.closed.fill")
+                        .font(.title3)
+                        .foregroundColor(bookColor)
+                }
             }
             .padding()
+            .background(nightMode ? Color.black.opacity(0.3) : Color.clear)
             
+            if useSinglePageMode {
+                singlePageView
+            } else {
+                spreadPageView
+            }
+        }
+        .background(backgroundColor.ignoresSafeArea())
+        .sheet(isPresented: $showSettings) {
+            ReaderSettingsView(
+                fontSize: $fontSize,
+                nightMode: $nightMode,
+                autoScrollEnabled: $autoScrollEnabled,
+                bookColor: bookColor
+            )
+            .presentationDetents([.height(350)])
+        }
+    }
+    
+    // MARK: - Single Page View (Full Width - Better Reading)
+    private var singlePageView: some View {
+        VStack(spacing: 0) {
+            // Full-width single page
+            ZStack {
+                // Book shadow
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.brown.opacity(0.15))
+                    .offset(x: 6, y: 6)
+                    .padding(.horizontal, 16)
+                
+                // Main page
+                ZStack {
+                    // Page background with paper texture
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.99, green: 0.97, blue: 0.94),
+                                    Color(red: 0.96, green: 0.94, blue: 0.90)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    
+                    // Page edge shadow (left side)
+                    HStack {
+                        LinearGradient(
+                            colors: [.black.opacity(0.05), .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: 20)
+                        Spacer()
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    
+                    // Content
+                    VStack(spacing: 16) {
+                        // Topic illustration
+                        ZStack {
+                            Circle()
+                                .fill(bookColor.opacity(0.1))
+                                .frame(width: 80, height: 80)
+                            
+                            Image(systemName: iconForSubject(book.subjects.first ?? book.title))
+                                .font(.system(size: 36))
+                                .foregroundColor(bookColor.opacity(0.7))
+                        }
+                        .padding(.top, 24)
+                        
+                        // Text content
+                        ScrollView {
+                            Text(pages[currentPage])
+                                .font(.system(size: fontSize, design: .serif))
+                                .foregroundColor(textColor)
+                                .lineSpacing(fontSize * 0.5)
+                                .multilineTextAlignment(.leading)
+                                .padding(.horizontal, 28)
+                        }
+                        
+                        // Page number
+                        HStack {
+                            Image(systemName: "leaf.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(bookColor.opacity(0.4))
+                            Text("— \(currentPage + 1) —")
+                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .foregroundColor(bookColor.opacity(0.6))
+                            Image(systemName: "leaf.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(bookColor.opacity(0.4))
+                                .scaleEffect(x: -1, y: 1)
+                        }
+                        .padding(.bottom, 16)
+                    }
+                    
+                    // Decorative border
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(bookColor.opacity(0.2), lineWidth: 1)
+                }
+                .padding(.horizontal, 16)
+            }
+            .frame(maxHeight: .infinity)
+            
+            // Navigation buttons
+            HStack(spacing: 40) {
+                Button {
+                    if currentPage > 0 {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            currentPage -= 1
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                        Text("Previous")
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(currentPage > 0 ? bookColor : .gray.opacity(0.4))
+                }
+                .disabled(currentPage == 0)
+                
+                // Read aloud button
+                Button {
+                    GameAudioService.shared.speakFluently(pages[currentPage])
+                } label: {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.title2)
+                        .foregroundColor(bookColor)
+                        .padding(12)
+                        .background(bookColor.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                
+                Button {
+                    if currentPage < pages.count - 1 {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            currentPage += 1
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("Next")
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(currentPage < pages.count - 1 ? bookColor : .gray.opacity(0.4))
+                }
+                .disabled(currentPage == pages.count - 1)
+            }
+            .padding(.vertical, 16)
+        }
+    }
+    
+    // MARK: - Spread Page View (Two Pages - Original)
+    private var spreadPageView: some View {
+        VStack(spacing: 0) {
             // Book with pages
             ZStack {
                 // Book base/shadow
@@ -180,7 +412,7 @@ struct FlipBookReaderView: View {
             }
             .frame(maxHeight: .infinity)
             
-            // Bottom controls
+            // Bottom controls for spread view
             HStack(spacing: 32) {
                 Button {
                     if currentPage > 0 && !isFlipping {
@@ -320,6 +552,39 @@ struct AnimatedBookCover: View {
     @State private var isHovering = false
     @State private var sparkleOffset: CGFloat = 0
     
+    // Fallback content when no cover image is available
+    private var coverFallbackContent: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.white.opacity(0.15), .clear, .black.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            VStack(spacing: 20) {
+                TopicIllustration(
+                    subject: book.subjects.first ?? book.title,
+                    color: .white
+                )
+                .frame(width: 80, height: 80)
+                
+                Text(book.title)
+                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(.horizontal, 16)
+                    .shadow(color: .black.opacity(0.3), radius: 2)
+                
+                Text(book.authors.joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(2)
+            }
+            .padding(.vertical, 24)
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 32) {
             // 3D Book with cover
@@ -348,7 +613,7 @@ struct AnimatedBookCover: View {
                     
                     // Main cover
                     ZStack {
-                        // Cover background
+                        // Cover background (behind image or as fallback)
                         RoundedRectangle(cornerRadius: 8)
                             .fill(
                                 LinearGradient(
@@ -358,22 +623,36 @@ struct AnimatedBookCover: View {
                                 )
                             )
                         
-                        // Cover texture overlay
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .clear, .black.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                        // Real cover image if available
+                        if let coverUrl = book.coverUrl, let url = URL(string: coverUrl) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                case .failure:
+                                    coverFallbackContent
+                                case .empty:
+                                    ZStack {
+                                        coverFallbackContent
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                @unknown default:
+                                    coverFallbackContent
+                                }
+                            }
+                        } else {
+                            coverFallbackContent
+                        }
                         
-                        // Spine highlight
+                        // Spine highlight (always shown for 3D effect)
                         HStack {
                             Rectangle()
                                 .fill(
                                     LinearGradient(
-                                        colors: [.black.opacity(0.3), .clear],
+                                        colors: [.black.opacity(0.25), .clear],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
@@ -381,30 +660,6 @@ struct AnimatedBookCover: View {
                                 .frame(width: 20)
                             Spacer()
                         }
-                        
-                        // Cover content
-                        VStack(spacing: 20) {
-                            // Topic illustration
-                            TopicIllustration(
-                                subject: book.subjects.first ?? book.title,
-                                color: .white
-                            )
-                            .frame(width: 80, height: 80)
-                            
-                            Text(book.title)
-                                .font(.system(size: 18, weight: .bold, design: .serif))
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-                                .lineLimit(3)
-                                .padding(.horizontal, 16)
-                                .shadow(color: .black.opacity(0.3), radius: 2)
-                            
-                            Text(book.authors.joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.9))
-                                .lineLimit(2)
-                        }
-                        .padding(.vertical, 24)
                         
                         // Gold border
                         RoundedRectangle(cornerRadius: 8)
@@ -419,6 +674,7 @@ struct AnimatedBookCover: View {
                             .padding(8)
                     }
                     .frame(width: 200, height: 280)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .rotation3DEffect(
                         .degrees(coverRotation),
                         axis: (x: 0, y: 1, z: 0),
@@ -508,7 +764,7 @@ struct BookPageBackground: View {
     var body: some View {
         ZStack {
             // Paper texture
-            RoundedRectangle(cornerRadius: isLeft ? UnevenRoundedRectangle.init(cornerRadii: .init(topLeading: 4, bottomLeading: 4, bottomTrailing: 0, topTrailing: 0)).cornerSize.width : 4)
+            RoundedRectangle(cornerRadius: 4)
                 .fill(Color(red: 0.98, green: 0.96, blue: 0.92))
             
             // Page edge shadow
@@ -699,4 +955,113 @@ func colorForSubject(_ subject: String) -> Color {
     if s.contains("child") || s.contains("fairy") { return Color(red: 0.5, green: 0.6, blue: 0.8) }
     
     return Color(red: 0.4, green: 0.3, blue: 0.25)
+}
+
+// MARK: - Reader Settings View
+struct ReaderSettingsView: View {
+    @Binding var fontSize: CGFloat
+    @Binding var nightMode: Bool
+    @Binding var autoScrollEnabled: Bool
+    let bookColor: Color
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Font Size Control
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "textformat.size")
+                            .foregroundColor(bookColor)
+                        Text("Text Size")
+                            .font(.headline)
+                    }
+                    
+                    HStack(spacing: 16) {
+                        Text("A")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                        
+                        Slider(value: $fontSize, in: 14...28, step: 2)
+                            .tint(bookColor)
+                        
+                        Text("A")
+                            .font(.system(size: 24))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Preview text
+                    Text("The quick brown fox jumps over the lazy dog.")
+                        .font(.system(size: fontSize, design: .serif))
+                        .foregroundColor(nightMode ? .white : .primary)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(nightMode ? Color.black : Color.gray.opacity(0.1))
+                        )
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.1))
+                )
+                
+                // Night Mode Toggle
+                HStack {
+                    Image(systemName: nightMode ? "moon.fill" : "sun.max.fill")
+                        .foregroundColor(nightMode ? .yellow : .orange)
+                    Text(nightMode ? "Night Mode" : "Day Mode")
+                        .font(.headline)
+                    Spacer()
+                    Toggle("", isOn: $nightMode)
+                        .tint(bookColor)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.1))
+                )
+                
+                // Quick font size buttons
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Quick Sizes")
+                        .font(.headline)
+                    
+                    HStack(spacing: 12) {
+                        ForEach([14, 18, 22, 26] as [CGFloat], id: \.self) { size in
+                            Button {
+                                fontSize = size
+                            } label: {
+                                Text("Aa")
+                                    .font(.system(size: size * 0.7))
+                                    .foregroundColor(fontSize == size ? .white : bookColor)
+                                    .frame(width: 50, height: 50)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(fontSize == size ? bookColor : bookColor.opacity(0.15))
+                                    )
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.1))
+                )
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Reading Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(bookColor)
+                }
+            }
+        }
+    }
 }

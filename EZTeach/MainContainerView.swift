@@ -67,6 +67,18 @@ struct MainContainerView: View {
         case students
         case defaultPasswordReport
         case schoolLibrary
+        case studentWriteUps
+        case subNotes
+        // New features
+        case aiLessonPlans
+        case aiStudyPlan
+        case activeTime
+        case gymGames
+        case talkerBoard
+        case movies
+        case addBookByPhoto
+        case plansBilling
+        case standardsExplorer
         var id: String { rawValue }
     }
 
@@ -116,6 +128,19 @@ struct MainContainerView: View {
                                     Image(systemName: "pencil.circle.fill")
                                         .font(.title3)
                                         .foregroundStyle(EZTeachColors.accentGradient)
+                                }
+                            }
+                        }
+
+                        // Teacher announcement button (on home page)
+                        if selectedPage == .home && role == "teacher" && schoolId != nil {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button {
+                                    showAddAnnouncement = true
+                                } label: {
+                                    Image(systemName: "megaphone")
+                                        .font(.title3)
+                                        .foregroundColor(EZTeachColors.accent)
                                 }
                             }
                         }
@@ -182,7 +207,11 @@ struct MainContainerView: View {
         }
         .sheet(isPresented: $showAddAnnouncement, onDismiss: notifyDataChanged) {
             if let schoolId {
-                AddAnnouncementView(schoolId: schoolId)
+                AddAnnouncementView(
+                    schoolId: schoolId,
+                    userRole: role,
+                    userName: Auth.auth().currentUser?.displayName ?? ""
+                )
             }
         }
         .sheet(item: $menuSheet) { sheet in
@@ -297,11 +326,16 @@ struct MainContainerView: View {
 
     @ViewBuilder
     private func menuSheetContent(_ sheet: MenuSheet) -> some View {
+        AnyView(menuSheetContentInner(sheet))
+            .onDisappear { menuSheet = nil }
+    }
+
+    @ViewBuilder
+    private func menuSheetContentInner(_ sheet: MenuSheet) -> some View {
         let sid = schoolId ?? (role == "district" ? (districtSchoolIds.first ?? "") : "")
         let hasSchool = !sid.isEmpty
 
-        Group {
-            switch sheet {
+        switch sheet {
             case .account:
                 NavigationStack { AccountView() }
             case .messaging:
@@ -338,7 +372,7 @@ struct MainContainerView: View {
                 if hasSchool { NavigationStack { BusTrackingView(schoolId: sid, isAdmin: role == "school") } }
                 else { NeedSchoolSheetView(feature: "Bus Tracking") { menuSheet = nil; activeSheet = .switchSchool } }
             case .lunchMenu:
-                if hasSchool { NavigationStack { LunchMenuView(schoolId: sid, isAdmin: role == "school") } }
+                if hasSchool { NavigationStack { LunchMenuView(schoolId: sid, userRole: role) } }
                 else { NeedSchoolSheetView(feature: "Lunch Menu") { menuSheet = nil; activeSheet = .switchSchool } }
             case .emergencyAlerts:
                 if hasSchool { NavigationStack { EmergencyAlertsView(schoolId: sid, isAdmin: role == "school") } }
@@ -371,12 +405,96 @@ struct MainContainerView: View {
                 }
             case .schoolLibrary:
                 if hasSchool {
-                    NavigationStack { SchoolLibraryView(schoolId: sid, canEdit: role == "school" || role == "librarian") }
+                    NavigationStack {
+                        if role == "school" || role == "librarian" || role == "teacher" {
+                            LibraryManagementView(schoolId: sid, canEdit: role == "school" || role == "librarian" || role == "teacher")
+                        } else {
+                            SchoolLibraryView(schoolId: sid, canEdit: false)
+                        }
+                    }
                 } else {
                     NeedSchoolSheetView(feature: "School Library") { menuSheet = nil; activeSheet = .switchSchool }
                 }
-            }
+            case .studentWriteUps:
+                if hasSchool {
+                    let userName = Auth.auth().currentUser?.displayName ?? "Staff"
+                    NavigationStack { StudentWriteUpView(schoolId: sid, userRole: role, userName: userName) }
+                } else {
+                    NeedSchoolSheetView(feature: "Student Write-Ups") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+            case .subNotes:
+                if hasSchool {
+                    let subName = Auth.auth().currentUser?.displayName ?? "Substitute"
+                    NavigationStack {
+                        SubNotesView(
+                            schoolId: sid,
+                            classId: "",
+                            className: "",
+                            teacherId: "",
+                            teacherName: "",
+                            subName: subName
+                        )
+                    }
+                } else {
+                    NeedSchoolSheetView(feature: "Sub Notes") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+                
+            // MARK: - New Features
+            case .aiLessonPlans:
+                if hasSchool {
+                    AILessonPlanView(schoolId: sid, userRole: role)
+                } else {
+                    NeedSchoolSheetView(feature: "AI Lesson Plans") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+                
+            case .aiStudyPlan:
+                if hasSchool {
+                    // For parents, this shows study plans for their children
+                    AIStudyPlanView(schoolId: sid, studentId: "", studentName: "My Child")
+                } else {
+                    NeedSchoolSheetView(feature: "AI Study Plans") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+                
+            case .activeTime:
+                if hasSchool {
+                    ActiveTimeView(schoolId: sid, userRole: role)
+                } else {
+                    NeedSchoolSheetView(feature: "Active Time") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+                
+            case .gymGames:
+                GymActiveGamesView()
+                
+            case .talkerBoard:
+                if hasSchool {
+                    TalkerBoardView(schoolId: sid, userRole: role, studentId: nil, studentName: nil)
+                } else {
+                    NeedSchoolSheetView(feature: "Talker Board") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+                
+            case .movies:
+                MoviesView()
+                
+            case .addBookByPhoto:
+                if hasSchool {
+                    AddBookByPhotoView(schoolId: sid)
+                } else {
+                    NeedSchoolSheetView(feature: "Add Book by Photo") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+
+            case .plansBilling:
+                if hasSchool {
+                    PlansBillingView(schoolId: sid)
+                } else {
+                    NeedSchoolSheetView(feature: "Plans & Billing") { menuSheet = nil; activeSheet = .switchSchool }
+                }
+
+            case .standardsExplorer:
+                if hasSchool {
+                    StandardsExplorerView(userRole: role, schoolId: sid, districtId: nil)
+                } else {
+                    NeedSchoolSheetView(feature: "Standards Explorer") { menuSheet = nil; activeSheet = .switchSchool }
+                }
         }
-        .onDisappear { menuSheet = nil }
     }
 }

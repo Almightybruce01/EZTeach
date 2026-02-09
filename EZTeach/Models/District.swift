@@ -23,49 +23,85 @@ struct District: Identifiable, Codable {
     let paymentMethod: String?
     let createdAt: Date
     
+    // MARK: - Per-Student/Year Pricing (district annual)
     enum SubscriptionTier: String, Codable, CaseIterable {
-        case none = "none"
-        case small = "small"      // 1-5 schools: $72/school
-        case medium = "medium"    // 6-15 schools: $68/school
-        case large = "large"      // 16-30 schools: $64/school
-        case enterprise = "enterprise" // 31+ schools: $60/school
-        
+        case none       = "none"
+        case tier3k     = "tier3k"       // 3,000–7,500 students: $12/student/yr
+        case tier7k     = "tier7k"       // 7,501–15,000: $11/student/yr
+        case tier15k    = "tier15k"      // 15,001–30,000: $10/student/yr
+        case tier30k    = "tier30k"      // 30,001–60,000: $9/student/yr
+        case tier60k    = "tier60k"      // 60,000+: $8/student/yr
+        case perSchool  = "perSchool"    // $2,750/school/yr (up to 750 students/school)
+
+        var pricePerStudentYear: Double {
+            switch self {
+            case .none:      return 12.0
+            case .tier3k:    return 12.0
+            case .tier7k:    return 11.0
+            case .tier15k:   return 10.0
+            case .tier30k:   return 9.0
+            case .tier60k:   return 8.0
+            case .perSchool: return 0   // uses flat per-school
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .none:      return "No plan"
+            case .tier3k:    return "3,000–7,500 students"
+            case .tier7k:    return "7,501–15,000 students"
+            case .tier15k:   return "15,001–30,000 students"
+            case .tier30k:   return "30,001–60,000 students"
+            case .tier60k:   return "60,000+ students"
+            case .perSchool: return "$2,750/school/year"
+            }
+        }
+
+        var schoolRange: String { label }
+
+        /// Legacy compatibility — returns approximate per-school equivalent
         var pricePerSchool: Double {
             switch self {
-            case .none: return 75.0
-            case .small: return 72.0
-            case .medium: return 68.0
-            case .large: return 64.0
-            case .enterprise: return 60.0
+            case .perSchool: return 2750.0 / 12.0  // monthly equivalent
+            default: return pricePerStudentYear * 750 / 12  // estimate for 750 students
             }
         }
-        
-        var schoolRange: String {
-            switch self {
-            case .none: return "0"
-            case .small: return "1-5"
-            case .medium: return "6-15"
-            case .large: return "16-30"
-            case .enterprise: return "31+"
+
+        static func tierFor(studentCount: Int) -> SubscriptionTier {
+            switch studentCount {
+            case 0:            return .none
+            case 1...7500:     return .tier3k
+            case 7501...15000: return .tier7k
+            case 15001...30000: return .tier15k
+            case 30001...60000: return .tier30k
+            default:           return .tier60k
             }
         }
-        
+
+        /// Legacy: tier by school count (uses perSchool flat rate)
         static func tierFor(schoolCount: Int) -> SubscriptionTier {
-            switch schoolCount {
-            case 0: return .none
-            case 1...5: return .small
-            case 6...15: return .medium
-            case 16...30: return .large
-            default: return .enterprise
-            }
+            if schoolCount == 0 { return .none }
+            return .perSchool
         }
     }
-    
-    static func calculatePrice(schoolCount: Int) -> (tier: SubscriptionTier, pricePerSchool: Double, total: Double) {
-        let tier = SubscriptionTier.tierFor(schoolCount: schoolCount)
-        let price = tier.pricePerSchool
-        let total = price * Double(schoolCount)
+
+    /// Per-student annual pricing: returns (tier, pricePerStudent, annualTotal)
+    static func calculateStudentPrice(totalStudents: Int) -> (tier: SubscriptionTier, pricePerStudent: Double, annualTotal: Double) {
+        let tier = SubscriptionTier.tierFor(studentCount: totalStudents)
+        let price = tier.pricePerStudentYear
+        let total = price * Double(totalStudents)
         return (tier, price, total)
+    }
+
+    /// Per-school annual pricing: $2,750/school/year (up to 750 students each)
+    static func calculatePerSchoolPrice(schoolCount: Int) -> (pricePerSchool: Double, annualTotal: Double) {
+        return (2750.0, 2750.0 * Double(schoolCount))
+    }
+
+    /// Legacy compatibility
+    static func calculatePrice(schoolCount: Int) -> (tier: SubscriptionTier, pricePerSchool: Double, total: Double) {
+        let result = calculatePerSchoolPrice(schoolCount: schoolCount)
+        return (.perSchool, result.pricePerSchool / 12.0, result.annualTotal / 12.0)
     }
     
     static func fromDocument(_ doc: DocumentSnapshot) -> District? {

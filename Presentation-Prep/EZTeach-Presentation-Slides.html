@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EZTeach - The Future of Learning</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .slide {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            position: relative;
+            page-break-after: always;
+        }
+        
+        .slide-number {
+            position: absolute;
+            bottom: 30px;
+            right: 40px;
+            font-size: 14px;
+            opacity: 0.6;
+        }
+        
+        .logo {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        h1 {
+            font-size: 72px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        h2 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        h3 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #a78bfa;
+        }
+        
+        .subtitle {
+            font-size: 28px;
+            opacity: 0.9;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+        
+        .tagline {
+            font-size: 36px;
+            font-style: italic;
+            opacity: 0.8;
+            margin-top: 20px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            max-width: 1200px;
+            margin-top: 40px;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .feature-desc {
+            font-size: 14px;
+            opacity: 0.8;
+            line-height: 1.5;
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            max-width: 1200px;
+            margin-top: 40px;
+        }
+        
+        .column {
+            text-align: left;
+        }
+        
+        .bullet-list {
+            list-style: none;
+            font-size: 22px;
+            line-height: 2;
+        }
+        
+        .bullet-list li::before {
+            content: "✓ ";
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .ai-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            border: 2px solid #667eea;
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 30px;
+            max-width: 800px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 50px;
+            max-width: 1000px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 72px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .stat-label {
+            font-size: 18px;
+            opacity: 0.8;
+        }
+        
+        .comparison-table {
+            margin-top: 40px;
+            border-collapse: collapse;
+            font-size: 18px;
+        }
+        
+        .comparison-table th, .comparison-table td {
+            padding: 15px 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        
+        .comparison-table th {
+            background: rgba(102, 126, 234, 0.3);
+            font-weight: 600;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .check {
+            color: #10b981;
+            font-size: 24px;
+        }
+        
+        .x {
+            color: #ef4444;
+            font-size: 24px;
+        }
+        
+        .role-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+            max-width: 1200px;
+            margin-top: 40px;
+        }
+        
+        .role-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 20px;
+            padding: 30px 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .role-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+        
+        .role-name {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .role-features {
+            font-size: 14px;
+            line-height: 1.8;
+            opacity: 0.9;
+            text-align: left;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 50px;
+            border-radius: 50px;
+            font-size: 24px;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 40px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+        }
+        
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1000px;
+            margin-top: 50px;
+            position: relative;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 25px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+        }
+        
+        .timeline-item {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .timeline-dot {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .exclusive-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 700;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        @media print {
+            .slide {
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- SLIDE 1: Title -->
+    <div class="slide" style="background: radial-gradient(ellipse at center, #1a1a2e 0%, #0f0f1a 100%);">
+        <div class="logo">EZTeach</div>
+        <h1>EZTeach</h1>
+        <p class="subtitle">The Complete School Management Platform</p>
+        <p class="tagline">"Where Education Meets Innovation"</p>
+        <div class="stat-row" style="margin-top: 80px;">
+            <div class="stat">
+                <div class="stat-number">1</div>
+                <div class="stat-label">App for Everything</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">8</div>
+                <div class="stat-label">User Roles</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">50+</div>
+                <div class="stat-label">Features</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">∞</div>
+                <div class="stat-label">Possibilities</div>
+            </div>
+        </div>
+        <div class="slide-number">1 / 15</div>
+    </div>
+
+    <!-- SLIDE 2: The Problem -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>The Problem with Traditional Education Tech</h2>
+        <div class="two-column">
+            <div class="column">
+                <h3 style="color: #ef4444;">Current Reality</h3>
+                <ul class="bullet-list" style="list-style: none;">
+                    <li style="color: #ef4444;">✗ Multiple disconnected apps</li>
+                    <li style="color: #ef4444;">✗ Expensive per-feature pricing</li>
+                    <li style="color: #ef4444;">✗ No real-time communication</li>
+                    <li style="color: #ef4444;">✗ Limited parent involvement</li>
+                    <li style="color: #ef4444;">✗ No engagement tracking</li>
+                    <li style="color: #ef4444;">✗ Generic, boring interfaces</li>
+                    <li style="color: #ef4444;">✗ No special needs support</li>
+                </ul>
+            </div>
+            <div class="column">
+                <h3 style="color: #10b981;">EZTeach Solution</h3>
+                <ul class="bullet-list">
+                    <li>All-in-one unified platform</li>
+                    <li>Affordable flat-rate pricing</li>
+                    <li>Real-time everything</li>
+                    <li>Deep parent integration</li>
+                    <li>Active time analytics</li>
+                    <li>Engaging, modern UI</li>
+                    <li>Inclusive accessibility features</li>
+                </ul>
+            </div>
+        </div>
+        <div class="slide-number">2 / 15</div>
+    </div>
+
+    <!-- SLIDE 3: AI Features -->
+    <div class="slide" style="background: radial-gradient(ellipse at top right, #4c1d95 0%, #1a1a2e 50%);">
+        <div class="logo">EZTeach</div>
+        <div class="exclusive-badge">🤖 AI-POWERED</div>
+        <h2>Artificial Intelligence at the Core</h2>
+        <p class="subtitle">The Future of Education is Here</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <div class="feature-title">AI Lesson Plans</div>
+                <div class="feature-desc">Generate complete lesson plans with objectives, activities, and assessments in seconds</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <div class="feature-title">AI Study Plans</div>
+                <div class="feature-desc">Personalized study schedules created by AI, tailored to each student's needs</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📖</div>
+                <div class="feature-title">AI Story Books</div>
+                <div class="feature-desc">Complete interactive stories with plots, characters, and educational themes</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎮</div>
+                <div class="feature-title">Adaptive Learning Games</div>
+                <div class="feature-desc">Games that adjust difficulty based on student performance</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <div class="feature-title">OCR Book Creation</div>
+                <div class="feature-desc">Photograph pages to create digital books with text extraction</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">Smart Analytics</div>
+                <div class="feature-desc">AI-powered insights on student engagement and progress</div>
+            </div>
+        </div>
+        <div class="slide-number">3 / 15</div>
+    </div>
+
+    <!-- SLIDE 4: All User Roles -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>One App, Every Role</h2>
+        <p class="subtitle">Tailored experiences for everyone in the school ecosystem</p>
+        <div class="role-cards">
+            <div class="role-card">
+                <div class="role-icon">🏫</div>
+                <div class="role-name">School Admin</div>
+                <div class="role-features">
+                    • Full dashboard control<br>
+                    • Staff management<br>
+                    • Analytics & reports<br>
+                    • Emergency alerts<br>
+                    • Sub management
+                </div>
+            </div>
+            <div class="role-card">
+                <div class="role-icon">👨‍🏫</div>
+                <div class="role-name">Teachers</div>
+                <div class="role-features">
+                    • AI lesson planning<br>
+                    • Homework assign<br>
+                    • Attendance tracking<br>
+                    • Grade management<br>
+                    • Parent messaging
+                </div>
+            </div>
+            <div class="role-card">
+                <div class="role-icon">👨‍👩‍👧</div>
+                <div class="role-name">Parents</div>
+                <div class="role-features">
+                    • Real-time updates<br>
+                    • AI study plans<br>
+                    • Bus tracking<br>
+                    • Homework submission<br>
+                    • Teacher messaging
+                </div>
+            </div>
+            <div class="role-card">
+                <div class="role-icon">🎒</div>
+                <div class="role-name">Students</div>
+                <div class="role-features">
+                    • Learning games<br>
+                    • Free books library<br>
+                    • Homework portal<br>
+                    • Study dashboard<br>
+                    • Progress tracking
+                </div>
+            </div>
+        </div>
+        <div class="role-cards" style="margin-top: 20px;">
+            <div class="role-card">
+                <div class="role-icon">🏛️</div>
+                <div class="role-name">District</div>
+                <div class="role-features">
+                    • Multi-school view<br>
+                    • Bulk management<br>
+                    • Volume pricing<br>
+                    • Analytics rollup
+                </div>
+            </div>
+            <div class="role-card">
+                <div class="role-icon">📚</div>
+                <div class="role-name">Librarian</div>
+                <div class="role-features">
+                    • Library management<br>
+                    • Photo book creation<br>
+                    • Resource sharing<br>
+                    • Student access
+                </div>
+            </div>
+            <div class="role-card">
+                <div class="role-icon">👤</div>
+                <div class="role-name">Substitute</div>
+                <div class="role-features">
+                    • Easy class access<br>
+                    • Student notes<br>
+                    • Daily summaries<br>
+                    • Teacher handoff
+                </div>
+            </div>
+            <div class="role-card">
+                <div class="role-icon">🎯</div>
+                <div class="role-name">Special Ed</div>
+                <div class="role-features">
+                    • AAC Talker Board<br>
+                    • Customizable cards<br>
+                    • Text-to-speech<br>
+                    • IEP support
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">4 / 15</div>
+    </div>
+
+    <!-- SLIDE 5: Learning & Engagement -->
+    <div class="slide" style="background: radial-gradient(ellipse at bottom left, #065f46 0%, #1a1a2e 50%);">
+        <div class="logo">EZTeach</div>
+        <h2>Interactive Learning Hub</h2>
+        <p class="subtitle">Education that students actually enjoy</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🎮</div>
+                <div class="feature-title">Educational Games</div>
+                <div class="feature-desc">Math, Reading, Trivia - each with unique themed UI. Racing games, fraction pizza, geometry shapes & more!</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <div class="feature-title">Free Books Library</div>
+                <div class="feature-desc">Public domain classics, AI-generated stories, reading by level. Full-page immersive reader with page-flip animations.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <div class="feature-title">Electives Hub</div>
+                <div class="feature-desc">Art, Music, Cooking, Science experiments - step-by-step interactive activities with supplies lists.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏃</div>
+                <div class="feature-title">Gym Games</div>
+                <div class="feature-desc">Real PE games with complete rules, setup, safety tips, and variations. From Freeze Tag to Kickball!</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎬</div>
+                <div class="feature-title">Educational Movies</div>
+                <div class="feature-desc">PG-13 and kids content only. Documentaries, classics, educational films by category.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⏱️</div>
+                <div class="feature-title">Active Time Tracking</div>
+                <div class="feature-desc">Not screen time - actual ACTIVE engagement. Parents and teachers see real learning metrics.</div>
+            </div>
+        </div>
+        <div class="slide-number">5 / 15</div>
+    </div>
+
+    <!-- SLIDE 6: Homework & Submissions -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>Homework Revolution</h2>
+        <p class="subtitle">Never lose homework again</p>
+        <div class="two-column">
+            <div class="column">
+                <h3>For Teachers</h3>
+                <ul class="bullet-list">
+                    <li>Assign to specific classes</li>
+                    <li>Auto-assign to all students</li>
+                    <li>Set due dates & descriptions</li>
+                    <li>Multiple assignment types</li>
+                    <li>Track submissions in real-time</li>
+                    <li>Grade and provide feedback</li>
+                </ul>
+            </div>
+            <div class="column">
+                <h3>For Students & Parents</h3>
+                <ul class="bullet-list">
+                    <li>📸 Submit photos of work</li>
+                    <li>📎 Upload files (PDF, docs)</li>
+                    <li>✏️ Add notes with submission</li>
+                    <li>⏰ Submit early to prevent loss</li>
+                    <li>👀 Parents can submit for kids</li>
+                    <li>🔔 Due date reminders</li>
+                </ul>
+            </div>
+        </div>
+        <div class="highlight-box">
+            <h3 style="margin-bottom: 15px;">📸 Photo Submission Feature</h3>
+            <p style="font-size: 18px; line-height: 1.6;">Students and parents can take a photo of completed homework and submit instantly. No more "the dog ate my homework" - work is safely stored in the cloud the moment it's done!</p>
+        </div>
+        <div class="slide-number">6 / 15</div>
+    </div>
+
+    <!-- SLIDE 7: Special Needs & Accessibility -->
+    <div class="slide" style="background: radial-gradient(ellipse at top, #7c3aed 0%, #1a1a2e 50%);">
+        <div class="logo">EZTeach</div>
+        <div class="exclusive-badge">♿ INCLUSIVE</div>
+        <h2>Accessibility First</h2>
+        <p class="subtitle">Every student deserves the best education</p>
+        <div class="feature-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 900px;">
+            <div class="feature-card">
+                <div class="feature-icon">🗣️</div>
+                <div class="feature-title">AAC Talker Board</div>
+                <div class="feature-desc">
+                    <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
+                        <li>Photos with words that speak when tapped</li>
+                        <li>Teacher-editable cards</li>
+                        <li>Sentence building strip</li>
+                        <li>Categories: Feelings, Actions, Food, etc.</li>
+                        <li>Customizable colors and grid size</li>
+                        <li>Student-specific boards</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📖</div>
+                <div class="feature-title">Reading Accessibility</div>
+                <div class="feature-desc">
+                    <ul style="text-align: left; padding-left: 20px; line-height: 1.8;">
+                        <li>Text-to-speech for all books</li>
+                        <li>Adjustable text size</li>
+                        <li>High contrast modes</li>
+                        <li>Reading level filtering</li>
+                        <li>Picture books for visual learners</li>
+                        <li>Read-aloud audio support</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="slide-number">7 / 15</div>
+    </div>
+
+    <!-- SLIDE 8: Parent Engagement -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>Parents Stay Connected</h2>
+        <p class="subtitle">Real involvement, not just notifications</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">AI Study Plans</div>
+                <div class="feature-desc">Parents create personalized study schedules. AI generates milestones and tracks progress.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⏱️</div>
+                <div class="feature-title">Active Time View</div>
+                <div class="feature-desc">See exactly how much time your child spends actively learning vs passive screen time.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📸</div>
+                <div class="feature-title">Homework Submission</div>
+                <div class="feature-desc">Submit homework photos on behalf of children. Never lose assignments again!</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚌</div>
+                <div class="feature-title">Bus Tracking</div>
+                <div class="feature-desc">Real-time bus location. Know exactly when your child will arrive.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <div class="feature-title">Teacher Messaging</div>
+                <div class="feature-desc">Direct, secure communication with teachers. No email chains needed.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🍎</div>
+                <div class="feature-title">Lunch Menu</div>
+                <div class="feature-desc">See what's for lunch with photos. Track allergens and nutrition info.</div>
+            </div>
+        </div>
+        <div class="slide-number">8 / 15</div>
+    </div>
+
+    <!-- SLIDE 9: School Administration -->
+    <div class="slide" style="background: radial-gradient(ellipse at bottom right, #1e40af 0%, #1a1a2e 50%);">
+        <div class="logo">EZTeach</div>
+        <h2>Powerful Administration</h2>
+        <p class="subtitle">Everything a school admin needs</p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <div class="feature-title">Analytics Dashboard</div>
+                <div class="feature-desc">Student engagement, attendance trends, performance metrics - all in one place.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔔</div>
+                <div class="feature-title">Bell Schedule</div>
+                <div class="feature-desc">Customizable bell schedules. Early dismissal, special days, half days - all supported.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚨</div>
+                <div class="feature-title">Emergency Alerts</div>
+                <div class="feature-desc">Instant push notifications to all parents and staff during emergencies.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👤</div>
+                <div class="feature-title">Sub Management</div>
+                <div class="feature-desc">Request subs, rank performance, seamless handoff with class notes.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <div class="feature-title">Student Write-Ups</div>
+                <div class="feature-desc">Document incidents with severity levels, actions taken, and follow-up tracking.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📄</div>
+                <div class="feature-title">Document Center</div>
+                <div class="feature-desc">Centralized document storage. Forms, policies, and resources for all staff.</div>
+            </div>
+        </div>
+        <div class="slide-number">9 / 15</div>
+    </div>
+
+    <!-- SLIDE 10: Technology Features -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>Cutting-Edge Technology</h2>
+        <p class="subtitle">Built for the modern classroom</p>
+        <div class="feature-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 900px;">
+            <div class="feature-card">
+                <div class="feature-icon">📺</div>
+                <div class="feature-title">Screen Mirror / AirPlay</div>
+                <div class="feature-desc">Built-in screen mirroring to projectors, TVs, and Apple devices. Perfect for presentations.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📷</div>
+                <div class="feature-title">Add Book by Photo</div>
+                <div class="feature-desc">Photograph book pages to create digital versions. OCR extracts text automatically.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎥</div>
+                <div class="feature-title">Video Meetings</div>
+                <div class="feature-desc">Built-in video conferencing for parent-teacher meetings and remote learning.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">☁️</div>
+                <div class="feature-title">Cloud-Powered</div>
+                <div class="feature-desc">Real-time sync across all devices. Never lose data. Always up to date.</div>
+            </div>
+        </div>
+        <div class="slide-number">10 / 15</div>
+    </div>
+
+    <!-- SLIDE 11: Comparison -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>Why EZTeach Wins</h2>
+        <table class="comparison-table">
+            <tr>
+                <th>Feature</th>
+                <th>EZTeach</th>
+                <th>ClassDojo</th>
+                <th>Google Classroom</th>
+                <th>Schoology</th>
+            </tr>
+            <tr>
+                <td>All Roles in One App</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+            <tr>
+                <td>AI Lesson Plans</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+            <tr>
+                <td>Educational Games</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+            <tr>
+                <td>AAC Talker Board</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+            <tr>
+                <td>Active Time Tracking</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+            <tr>
+                <td>Photo Homework Submit</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="check">✓</span></td>
+                <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+                <td>Bus Tracking</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+            <tr>
+                <td>Free Books Library</td>
+                <td><span class="check">✓</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+                <td><span class="x">✗</span></td>
+            </tr>
+        </table>
+        <div class="slide-number">11 / 15</div>
+    </div>
+
+    <!-- SLIDE 12: Pricing -->
+    <div class="slide" style="background: radial-gradient(ellipse at center, #064e3b 0%, #1a1a2e 50%);">
+        <div class="logo">EZTeach</div>
+        <h2>Simple, Transparent Pricing</h2>
+        <p class="subtitle">No hidden fees. No per-feature charges.</p>
+        <div class="feature-grid" style="grid-template-columns: repeat(2, 1fr); max-width: 800px; margin-top: 50px;">
+            <div class="feature-card" style="border: 2px solid #10b981;">
+                <div class="feature-title" style="font-size: 24px; color: #10b981;">Individual School</div>
+                <div style="font-size: 48px; font-weight: 800; margin: 20px 0;">$129<span style="font-size: 18px; opacity: 0.7;">/month</span></div>
+                <div class="feature-desc">
+                    • Starting tier (up to 200 students)<br>
+                    • All features included<br>
+                    • Priority support<br>
+                    • Regular updates
+                </div>
+            </div>
+            <div class="feature-card" style="border: 2px solid #8b5cf6;">
+                <div class="feature-title" style="font-size: 24px; color: #8b5cf6;">District Volume</div>
+                <div style="font-size: 48px; font-weight: 800; margin: 20px 0;">$30-60<span style="font-size: 18px; opacity: 0.7;">/school/mo</span></div>
+                <div class="feature-desc">
+                    • 1-5 schools: $60/school<br>
+                    • 6-15 schools: $50/school<br>
+                    • 16-50 schools: $40/school<br>
+                    • 51+ schools: $30/school
+                </div>
+            </div>
+        </div>
+        <p style="margin-top: 40px; font-size: 20px; opacity: 0.8;">Compare to $3-5 per student with competitors = $900-1500/month for 300 students!</p>
+        <div class="slide-number">12 / 15</div>
+    </div>
+
+    <!-- SLIDE 13: Implementation -->
+    <div class="slide">
+        <div class="logo">EZTeach</div>
+        <h2>Quick & Easy Implementation</h2>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-dot">1</div>
+                <div style="font-weight: 600; font-size: 18px;">Sign Up</div>
+                <div style="opacity: 0.7; font-size: 14px;">5 minutes</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">2</div>
+                <div style="font-weight: 600; font-size: 18px;">Add School Info</div>
+                <div style="opacity: 0.7; font-size: 14px;">10 minutes</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">3</div>
+                <div style="font-weight: 600; font-size: 18px;">Invite Teachers</div>
+                <div style="opacity: 0.7; font-size: 14px;">Bulk invite</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">4</div>
+                <div style="font-weight: 600; font-size: 18px;">Add Students</div>
+                <div style="opacity: 0.7; font-size: 14px;">CSV import</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot">5</div>
+                <div style="font-weight: 600; font-size: 18px;">Go Live!</div>
+                <div style="opacity: 0.7; font-size: 14px;">Same day</div>
+            </div>
+        </div>
+        <div class="highlight-box" style="margin-top: 60px;">
+            <h3>🚀 Ready in 24 Hours</h3>
+            <p style="font-size: 18px; margin-top: 10px;">Most schools are fully operational within one day. Our team provides free onboarding support.</p>
+        </div>
+        <div class="slide-number">13 / 15</div>
+    </div>
+
+    <!-- SLIDE 14: Testimonials / Vision -->
+    <div class="slide" style="background: radial-gradient(ellipse at top left, #831843 0%, #1a1a2e 50%);">
+        <div class="logo">EZTeach</div>
+        <h2>The Future of Education</h2>
+        <div class="two-column" style="gap: 40px;">
+            <div class="column">
+                <div class="feature-card" style="text-align: left; margin-bottom: 20px;">
+                    <p style="font-size: 18px; line-height: 1.6; font-style: italic;">"EZTeach has transformed how we communicate with parents. The AI features save our teachers hours every week."</p>
+                    <p style="margin-top: 15px; color: #a78bfa; font-weight: 600;">— Principal, Elementary School</p>
+                </div>
+                <div class="feature-card" style="text-align: left;">
+                    <p style="font-size: 18px; line-height: 1.6; font-style: italic;">"My son loves the educational games. He actually asks to do 'learning time' now. The homework submission feature is a game-changer."</p>
+                    <p style="margin-top: 15px; color: #a78bfa; font-weight: 600;">— Parent</p>
+                </div>
+            </div>
+            <div class="column">
+                <h3>Our Vision</h3>
+                <p style="font-size: 20px; line-height: 1.8; margin-top: 20px;">
+                    Education should be:
+                </p>
+                <ul class="bullet-list">
+                    <li>Engaging, not boring</li>
+                    <li>Connected, not isolated</li>
+                    <li>Inclusive, not exclusive</li>
+                    <li>Affordable, not expensive</li>
+                    <li>Simple, not complicated</li>
+                    <li>AI-enhanced, not AI-replaced</li>
+                </ul>
+            </div>
+        </div>
+        <div class="slide-number">14 / 15</div>
+    </div>
+
+    <!-- SLIDE 15: Call to Action -->
+    <div class="slide" style="background: radial-gradient(ellipse at center, #4c1d95 0%, #1a1a2e 100%);">
+        <div class="logo">EZTeach</div>
+        <h1>Ready to Transform Your School?</h1>
+        <p class="subtitle">Join the future of education today</p>
+        <div class="stat-row" style="margin-top: 50px; margin-bottom: 50px;">
+            <div class="stat">
+                <div class="feature-icon">🎯</div>
+                <div class="stat-label">All-in-One Platform</div>
+            </div>
+            <div class="stat">
+                <div class="feature-icon">🤖</div>
+                <div class="stat-label">AI-Powered</div>
+            </div>
+            <div class="stat">
+                <div class="feature-icon">💰</div>
+                <div class="stat-label">Affordable</div>
+            </div>
+            <div class="stat">
+                <div class="feature-icon">♿</div>
+                <div class="stat-label">Inclusive</div>
+            </div>
+        </div>
+        <a href="https://ezteach.org" class="cta-button">Start Free Trial</a>
+        <p style="margin-top: 30px; opacity: 0.8;">
+            📧 contact@ezteach.org &nbsp;|&nbsp; 🌐 ezteach.org
+        </p>
+        <div class="slide-number">15 / 15</div>
+    </div>
+
+</body>
+</html>

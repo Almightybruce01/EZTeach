@@ -73,6 +73,10 @@ struct StudentSideMenuView: View {
                     menuItem("Leaderboard", icon: "trophy.fill", isSelected: selectedPage == .leaderboard) { go(.leaderboard) }
                     Divider()
                         .padding(.vertical, 12)
+                    sectionLabel("TOOLS")
+                    menuItem("Talker Board", icon: "bubble.left.and.text.bubble.right.fill", isSelected: selectedPage == .talkerBoard) { go(.talkerBoard) }
+                    Divider()
+                        .padding(.vertical, 12)
                     sectionLabel("ELECTIVES")
                     menuItem("Art", icon: "paintpalette.fill", isSelected: selectedPage == .electives) { go(.electives) }
                     menuItem("Music", icon: "music.note", isSelected: selectedPage == .electives) { go(.electives) }

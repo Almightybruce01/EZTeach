@@ -87,9 +87,20 @@ service cloud.firestore {
     }
 
     match /schools/{schoolId} {
+      // Any signed-in user can query schools (needed for school-code lookup)
+      allow list: if signedIn();
+      // Reading a specific school doc requires belonging to it or being signed in
+      allow get: if signedIn();
       allow create: if signedIn();
-      allow read: if signedIn();
+      // Only school admin can update/delete their own school
       allow update, delete: if isSchoolAdmin() && activeSchool() == schoolId;
+
+      // Students subcollection (if used within schools)
+      match /students/{studentId} {
+        allow read: if signedIn() && activeSchool() == schoolId;
+        allow create: if signedIn() && activeSchool() == schoolId;
+        allow update, delete: if signedIn() && activeSchool() == schoolId;
+      }
     }
 
     // ================= DISTRICTS =================
@@ -428,8 +439,8 @@ service cloud.firestore {
         request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.participantIds
       );
 
-      allow create: if signedIn() && request.resource.data.senderUserId == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.senderUserId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.senderId == request.auth.uid;
     }
 
     // ================= SUPPORT CLAIMS =================
@@ -612,7 +623,28 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, update, delete: if signedIn() && (
         (role() == "school" && activeSchool() == schoolId) ||
-        (role() == "librarian" && activeSchool() == schoolId)
+        (role() == "librarian" && activeSchool() == schoolId) ||
+        (isTeacher() && activeSchool() == schoolId)
+      );
+    }
+
+    // Library catalog (new management system)
+    match /schoolLibraries/{schoolId}/catalog/{catalogId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && (
+        (role() == "school" && activeSchool() == schoolId) ||
+        (role() == "librarian" && activeSchool() == schoolId) ||
+        (isTeacher() && activeSchool() == schoolId)
+      );
+    }
+
+    // Library checkouts
+    match /schoolLibraries/{schoolId}/checkouts/{checkoutId} {
+      allow read: if signedIn() && activeSchool() == schoolId;
+      allow create, update, delete: if signedIn() && (
+        (role() == "school" && activeSchool() == schoolId) ||
+        (role() == "librarian" && activeSchool() == schoolId) ||
+        (isTeacher() && activeSchool() == schoolId)
       );
     }
 

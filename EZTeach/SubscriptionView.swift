@@ -17,6 +17,8 @@ struct SubscriptionView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    private let tiers = FirestoreService.schoolTiers
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -25,14 +27,16 @@ struct SubscriptionView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         headerSection
+                        tierSection
                         featuresSection
+                        districtSection
                         manageAccountSection
                         termsSection
                     }
                     .padding()
                 }
             }
-            .navigationTitle("Account")
+            .navigationTitle("Plans & Pricing")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -56,7 +60,7 @@ struct SubscriptionView: View {
             }
 
             VStack(spacing: 8) {
-                Text("Account Management")
+                Text("EZTeach Plans")
                     .font(.title.bold())
 
                 if userData.isSubscribed {
@@ -64,7 +68,7 @@ struct SubscriptionView: View {
                         .font(.subheadline.bold())
                         .foregroundColor(EZTeachColors.success)
                 } else {
-                    Text("Exclusive features available on our website")
+                    Text("All plans include every feature. Tiers only differ by student cap.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -74,20 +78,65 @@ struct SubscriptionView: View {
         .padding(.vertical, 20)
     }
 
+    // MARK: - School Tier Pricing
+    private var tierSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("School Monthly Plans")
+                .font(.headline)
+
+            Text("No add-ons. No per-module upsells. Every tier includes all features.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            ForEach(tiers, id: \.tier) { t in
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(t.label)
+                            .font(.subheadline.bold())
+                        Text("Up to \(t.cap) students")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Text("$\(t.price)/mo")
+                        .font(.subheadline.bold().monospacedDigit())
+                        .foregroundColor(EZTeachColors.accent)
+                }
+                .padding(12)
+                .background(EZTeachColors.secondaryBackground.opacity(0.6))
+                .cornerRadius(10)
+            }
+        }
+        .padding(16)
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(14)
+    }
+
     // MARK: - Features
     private var featuresSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("What's Included")
+            Text("What's Included in Every Plan")
                 .font(.headline)
 
-            VStack(alignment: .leading, spacing: 12) {
-                featureRow("Unlimited teacher accounts")
-                featureRow("Unlimited substitute management")
-                featureRow("Full calendar & announcements")
-                featureRow("Student roster & grades")
+            VStack(alignment: .leading, spacing: 10) {
+                featureRow("Learning games & leaderboards")
+                featureRow("Free books & Reading Together")
+                featureRow("AI Lesson Plans & AI Study Plans")
+                featureRow("Student roster, grades & GPA")
+                featureRow("Homework with photo/file submissions")
                 featureRow("Parent portal access")
-                featureRow("Sub plans & scheduling")
+                featureRow("Sub plans, requests & availability")
+                featureRow("Attendance tracking & analytics")
+                featureRow("Behavior tracking & write-ups")
+                featureRow("School library management")
+                featureRow("Bell schedules & lunch menus")
+                featureRow("Bus route tracking")
                 featureRow("Document storage")
+                featureRow("Video meetings")
+                featureRow("Emergency alerts")
+                featureRow("Electives hub & Gym games")
+                featureRow("Active time tracking")
+                featureRow("District-wide management")
                 featureRow("Priority customer support")
             }
         }
@@ -101,8 +150,57 @@ struct SubscriptionView: View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundColor(EZTeachColors.success)
+                .font(.caption)
             Text(text)
                 .font(.subheadline)
+        }
+    }
+
+    // MARK: - District Pricing
+    private var districtSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("District Annual Pricing")
+                .font(.headline)
+
+            Text("Per-student/year (all features included):")
+                .font(.subheadline.bold())
+
+            VStack(spacing: 6) {
+                districtRow("3,000–7,500 students", "$12/student/yr")
+                districtRow("7,501–15,000 students", "$11/student/yr")
+                districtRow("15,001–30,000 students", "$10/student/yr")
+                districtRow("30,001–60,000 students", "$9/student/yr")
+                districtRow("60,000+ students", "$8/student/yr")
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Per-school option:")
+                    .font(.subheadline.bold())
+                Text("$2,750/school/year (up to 750 students)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Text("Contact ezteach0@gmail.com for district pricing.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(16)
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(14)
+    }
+
+    private func districtRow(_ range: String, _ price: String) -> some View {
+        HStack {
+            Text(range)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(price)
+                .font(.caption.bold())
+                .foregroundColor(EZTeachColors.accent)
         }
     }
 
@@ -130,7 +228,7 @@ struct SubscriptionView: View {
             } label: {
                 HStack {
                     Image(systemName: "safari")
-                    Text(userData.isSubscribed ? "Manage Account" : "View Plans")
+                    Text(userData.isSubscribed ? "Manage Account" : "Get Started")
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
@@ -141,7 +239,7 @@ struct SubscriptionView: View {
             }
             .buttonStyle(.plain)
 
-            Text("Exclusive features and billing are managed on our website.")
+            Text("Billing is managed on our website at ezteach.org.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
