@@ -81,6 +81,32 @@ struct SubscriptionRequiredView: View {
                 .cornerRadius(14)
                 .padding(.horizontal, 24)
 
+                // Apple-required legal links
+                VStack(spacing: 6) {
+                    Text("Subscriptions are managed on our website.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Button("Terms of Use") {
+                            if let url = URL(string: "https://ezteach.org/terms") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .font(.caption2.bold())
+                        .foregroundColor(EZTeachColors.accent)
+
+                        Button("Privacy Policy") {
+                            if let url = URL(string: "https://ezteach.org/privacy") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .font(.caption2.bold())
+                        .foregroundColor(EZTeachColors.accent)
+                    }
+                }
+                .padding(.bottom, 16)
+
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

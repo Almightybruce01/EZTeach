@@ -33,6 +33,8 @@ struct SubscriptionView: View {
                         featuresSection
                         districtSection
                         manageAccountSection
+                        restorePurchasesSection
+                        subscriptionTermsSection
                         termsSection
                     }
                     .padding()
@@ -354,19 +356,96 @@ struct SubscriptionView: View {
         }
     }
 
-    // MARK: - Terms
+    // MARK: - Restore Purchases (Apple requirement)
+    private var restorePurchasesSection: some View {
+        Button {
+            openURL("https://apps.apple.com/account/subscriptions")
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(EZTeachColors.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Restore Purchases")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.primary)
+                    Text("Already subscribed? Manage your subscription in your Apple ID settings.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(EZTeachColors.secondaryBackground)
+            .cornerRadius(14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Subscription Terms (Apple compliance — Section 3.1.2)
+    private var subscriptionTermsSection: some View {
+        VStack(spacing: 12) {
+            Text("Subscription Information")
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+
+            Text("EZTeach subscriptions are billed through our website at ezteach.org. All plans auto-renew at the end of each billing period (monthly or yearly) unless canceled before the renewal date. You can manage or cancel your subscription at any time from your account settings on our website or by contacting support.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Prices shown are in USD. Subscriptions provide access to all features for the duration of the active billing period. If your subscription lapses, access to premium features will be restricted until renewed.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    // MARK: - Terms & Privacy (Apple requirement — clickable links)
     private var termsSection: some View {
-        VStack(spacing: 8) {
-            Text("By using EZTeach, you agree to our Terms of Service and Privacy Policy.")
+        VStack(spacing: 10) {
+            Text("By using EZTeach, you agree to our:")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+
+            HStack(spacing: 16) {
+                Button("Terms of Use") {
+                    openURL("https://ezteach.org/terms")
+                }
+                .font(.caption.bold())
+                .foregroundColor(EZTeachColors.accent)
+
+                Text("|")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Button("Privacy Policy") {
+                    openURL("https://ezteach.org/privacy")
+                }
+                .font(.caption.bold())
+                .foregroundColor(EZTeachColors.accent)
+            }
+
+            Button("Manage Subscriptions") {
+                openURL("https://apps.apple.com/account/subscriptions")
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
         }
         .padding(.top, 8)
+        .padding(.bottom, 16)
     }
 
     private func openAccountWebsite() {
-        guard let url = URL(string: accountManagementURL) else { return }
+        openURL(accountManagementURL)
+    }
+
+    private func openURL(_ string: String) {
+        guard let url = URL(string: string) else { return }
         UIApplication.shared.open(url)
     }
 }

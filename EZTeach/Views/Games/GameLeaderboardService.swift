@@ -19,6 +19,7 @@ struct GameScoreEntry: Identifiable {
     let gameId: String
     let userId: String
     let displayName: String?
+    let schoolId: String?
     let schoolName: String?
     let grade: String?
     let score: Int
@@ -128,8 +129,9 @@ final class GameLeaderboardService {
                     data["grade"] = GradeUtils.label(gl)
                 }
 
-                // Get school name
+                // Store schoolId for school-scoped leaderboards
                 if !schoolId.isEmpty {
+                    data["schoolId"] = schoolId
                     self.db.collection("schools").document(schoolId).getDocument { schoolSnap, _ in
                         let schoolName = schoolSnap?.data()?["schoolName"] as? String ?? ""
                         if !schoolName.isEmpty {
@@ -151,6 +153,7 @@ final class GameLeaderboardService {
             gameId: d["gameId"] as? String ?? "",
             userId: d["userId"] as? String ?? "",
             displayName: d["displayName"] as? String,
+            schoolId: d["schoolId"] as? String,
             schoolName: d["schoolName"] as? String,
             grade: d["grade"] as? String,
             score: d["score"] as? Int ?? 0,
@@ -265,7 +268,7 @@ final class GameLeaderboardService {
         }
     }
     
-    func fetchGeneralLeaderboard(timeRange: LeaderboardTimeRange, limit: Int = 30, completion: @escaping ([LeaderboardRank]) -> Void) {
+    func fetchGeneralLeaderboard(timeRange: LeaderboardTimeRange, limit: Int = 100, completion: @escaping ([LeaderboardRank]) -> Void) {
         var query: Query = db.collection("gameLeaderboards")
         
         switch timeRange {
@@ -282,13 +285,76 @@ final class GameLeaderboardService {
             completion(Array(aggregated.prefix(limit)))
         }
     }
-    
+
+    // MARK: - School-scoped leaderboards
+
+    /// Fetch general leaderboard for a specific school (sum of all games)
+    func fetchSchoolGeneralLeaderboard(schoolId: String, timeRange: LeaderboardTimeRange, limit: Int = 100, completion: @escaping ([LeaderboardRank]) -> Void) {
+        var query: Query = db.collection("gameLeaderboards")
+            .whereField("schoolId", isEqualTo: schoolId)
+
+        switch timeRange {
+        case .allTime: break
+        case .monthly:
+            query = query.whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: startOfMonth()))
+        case .weekly:
+            query = query.whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: startOfWeek()))
+        }
+
+        query.getDocuments { snap, _ in
+            let entries = snap?.documents.map { Self.parseEntry($0) } ?? []
+            let aggregated = Self.aggregateByUserSum(entries)
+            completion(Array(aggregated.prefix(limit)))
+        }
+    }
+
+    /// Fetch per-game leaderboard for a specific school
+    func fetchSchoolLeaderboard(schoolId: String, gameId: String, timeRange: LeaderboardTimeRange, limit: Int = 100, completion: @escaping ([LeaderboardRank]) -> Void) {
+        var query: Query = db.collection("gameLeaderboards")
+            .whereField("schoolId", isEqualTo: schoolId)
+            .whereField("gameId", isEqualTo: gameId)
+
+        switch timeRange {
+        case .allTime: break
+        case .monthly:
+            query = query.whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: startOfMonth()))
+        case .weekly:
+            query = query.whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: startOfWeek()))
+        }
+
+        query.getDocuments { snap, _ in
+            let entries = snap?.documents.map { Self.parseEntry($0) } ?? []
+            let aggregated = Self.aggregateByUserMax(entries)
+            completion(Array(aggregated.prefix(limit)))
+        }
+    }
+
+    /// Resolve the current user's schoolId from Firestore
+    func resolveCurrentUserSchoolId(completion: @escaping (String?) -> Void) {
+        guard let uid = currentUserId else {
+            completion(nil)
+            return
+        }
+        db.collection("students").whereField("userId", isEqualTo: uid).limit(to: 1).getDocuments { snap, _ in
+            if let sDoc = snap?.documents.first?.data(), let sid = sDoc["schoolId"] as? String, !sid.isEmpty {
+                completion(sid)
+                return
+            }
+            self.db.collection("users").document(uid).getDocument { uSnap, _ in
+                let sid = uSnap?.data()?["activeSchoolId"] as? String
+                    ?? uSnap?.data()?["schoolId"] as? String
+                completion(sid)
+            }
+        }
+    }
+
     func fetchLeaderboard(gameId: String, limit: Int = 20, completion: @escaping ([GameScoreEntry]) -> Void) {
         fetchLeaderboard(gameId: gameId, timeRange: .allTime, limit: limit) { ranks in
             completion(ranks.map {
                 GameScoreEntry(id: $0.id, gameId: gameId, userId: $0.userId,
-                               displayName: $0.displayName, schoolName: $0.schoolName,
-                               grade: $0.grade, score: $0.score, timeSeconds: nil,
+                               displayName: $0.displayName, schoolId: nil,
+                               schoolName: $0.schoolName, grade: $0.grade,
+                               score: $0.score, timeSeconds: nil,
                                createdAt: Date())
             })
         }
