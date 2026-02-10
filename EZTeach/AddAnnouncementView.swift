@@ -233,6 +233,7 @@ struct AddAnnouncementView: View {
             "title": title.trimmingCharacters(in: .whitespacesAndNewlines),
             "body": message.trimmingCharacters(in: .whitespacesAndNewlines),
             "isActive": true,
+            "teachersOnly": false,
             "authorRole": userRole,
             "authorName": resolvedName,
             "authorUid": Auth.auth().currentUser?.uid ?? "",

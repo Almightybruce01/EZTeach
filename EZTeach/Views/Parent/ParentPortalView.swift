@@ -1425,7 +1425,6 @@ struct ParentAnnouncementsView: View {
     private func loadAnnouncements() {
         db.collection("announcements")
             .whereField("schoolId", isEqualTo: schoolId)
-            .whereField("teachersOnly", isEqualTo: false)
             .order(by: "createdAt", descending: true)
             .limit(to: 20)
             .getDocuments { snap, _ in

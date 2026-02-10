@@ -282,7 +282,7 @@ struct StudentHomeTab: View {
                 .getDocuments { snap, _ in
                     let docs = snap?.documents ?? []
                     let ann = docs
-                        .filter { ($0.data()["teachersOnly"] as? Bool ?? false) == false && ($0.data()["isActive"] as? Bool ?? true) }
+                        .filter { ($0.data()["isActive"] as? Bool ?? true) }
                         .map { doc in
                             let d = doc.data()
                             return Announcement(id: doc.documentID, schoolId: student.schoolId, title: d["title"] as? String ?? "", body: d["body"] as? String ?? "", attachmentUrl: d["attachmentUrl"] as? String, isActive: true, authorRole: d["authorRole"] as? String ?? "school", authorName: d["authorName"] as? String ?? "", createdAt: (d["createdAt"] as? Timestamp)?.dateValue())
@@ -291,12 +291,12 @@ struct StudentHomeTab: View {
                 }
             db.collection("events")
                 .whereField("schoolId", isEqualTo: student.schoolId)
+                .whereField("teachersOnly", isEqualTo: false)
                 .order(by: "date")
                 .limit(to: 20)
                 .getDocuments { snap, _ in
                     let docs = snap?.documents ?? []
                     let ev = docs
-                        .filter { ($0.data()["teachersOnly"] as? Bool ?? false) == false }
                         .map { SchoolEvent.fromDoc($0, schoolId: student.schoolId) }
                     DispatchQueue.main.async { events = ev }
                 }

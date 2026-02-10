@@ -268,10 +268,11 @@ service cloud.firestore {
     // ================= ANNOUNCEMENTS =================
     match /announcements/{announcementId} {
       // School owner always; teachers/subs/parents need school subscription
+      // Students can read all announcements at their school (no teachersOnly toggle on announcements)
       allow read: if signedIn() && (
-        (isStudent() && resource.data.schoolId == studentSchoolId() && resource.data.get('teachersOnly', false) == false) ||
+        (isStudent() && resource.data.schoolId == studentSchoolId()) ||
         (resource.data.schoolId == activeSchool() && (isSchoolAdmin() ||
-        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || (isParent() && resource.data.get('teachersOnly', false) == false)))))
+        (schoolHasActiveSubscription(resource.data.schoolId) && (isStaff() || isParent()))))
       );
 
       allow create: if isSchoolAdmin() && request.resource.data.schoolId == activeSchool();
