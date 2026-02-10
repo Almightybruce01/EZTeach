@@ -40,9 +40,14 @@
 - [ ] What's New pasted
 
 ### App Review Information
-- [ ] Demo Account provided (school account for reviewers):
-  - Email: *(create a demo school account)*
-  - Password: *(set a demo password)*
+- [ ] Demo Account provided (school admin — full access to all features):
+  - Email: `test.faestreets.ezteach@gmail.com`
+  - Password: `EZTeachTest2026!`
+  - School: Fae Streets Academy (School Code: 987654)
+- [ ] Student Login (students log in separately on the Student Login screen):
+  - Student ID: *(open the school account above → Students → tap any student → copy their Student ID)*
+  - Password: Student ID + `!` (e.g. if Student ID is `ABC123`, password is `ABC123!`)
+  - Demo student "Pepper Clap Snap" is enrolled at Fae Streets Academy
 - [ ] Notes for Reviewer:
   ```
   EZTeach is a K-12 school management platform. Subscriptions are handled
@@ -50,8 +55,17 @@
   in-app purchases. The app is free to download and use. Schools subscribe
   on our website to unlock all features.
 
-  Demo account provided is a school administrator with an active subscription
-  so you can see all features.
+  SCHOOL ADMIN ACCOUNT (recommended for review):
+  Email: test.faestreets.ezteach@gmail.com
+  Password: EZTeachTest2026!
+  This account has full access to all features — grades, attendance, AI lesson
+  plans, movies, homework, messaging, bell schedules, analytics, and more.
+
+  STUDENT LOGIN:
+  Students log in via the "Student Login" button on the main login screen.
+  They use their Student ID and password (default: Student ID + "!").
+  To find a Student ID: log in with the school account above, go to Students,
+  tap any student, and the Student ID is displayed on their profile.
 
   The app supports iPhone, iPad, and Mac (via Mac Catalyst).
   ```
