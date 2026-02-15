@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 
 struct AccountView: View {
 
@@ -17,6 +18,10 @@ struct AccountView: View {
     @State private var showDistrictSubscription = false
     @State private var showSupport = false
     @State private var showEditProfile = false
+    @State private var showDeleteConfirm = false
+    @State private var showDeleteFinalConfirm = false
+    @State private var isDeleting = false
+    @State private var deleteError = ""
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
@@ -56,6 +61,9 @@ struct AccountView: View {
 
                             // Sign out
                             signOutButton
+
+                            // Delete account
+                            deleteAccountSection
                         }
                         .padding()
                     }
@@ -283,6 +291,86 @@ struct AccountView: View {
             .cornerRadius(14)
         }
         .padding(.top, 8)
+    }
+
+    // MARK: - Delete Account
+    private var deleteAccountSection: some View {
+        VStack(spacing: 8) {
+            Button {
+                showDeleteConfirm = true
+            } label: {
+                HStack {
+                    Image(systemName: "trash.fill")
+                    Text("Delete My Account")
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            }
+            .alert("Delete Account?", isPresented: $showDeleteConfirm) {
+                Button("Cancel", role: .cancel) { }
+                Button("Continue", role: .destructive) {
+                    showDeleteFinalConfirm = true
+                }
+            } message: {
+                Text("This will permanently delete your account and all associated data. This action cannot be undone.")
+            }
+            .alert("Are you absolutely sure?", isPresented: $showDeleteFinalConfirm) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete Forever", role: .destructive) {
+                    deleteAccount()
+                }
+            } message: {
+                Text("Your account, profile, and all data will be permanently removed. You will not be able to recover it.")
+            }
+
+            if isDeleting {
+                ProgressView("Deleting account...")
+                    .padding(.top, 4)
+            }
+
+            if !deleteError.isEmpty {
+                Text(deleteError)
+                    .font(.caption)
+                    .foregroundColor(EZTeachColors.error)
+                    .multilineTextAlignment(.center)
+            }
+
+            Text("Deleting your account removes all your data permanently.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 4)
+    }
+
+    private func deleteAccount() {
+        guard let user = Auth.auth().currentUser else { return }
+        isDeleting = true
+        deleteError = ""
+
+        // Call Cloud Function to delete user data from Firestore
+        let functions = Functions.functions()
+        functions.httpsCallable("deleteUserAccount").call(["userId": user.uid]) { result, error in
+            if let error = error {
+                // If function fails, still try to delete auth account
+                print("Cloud function error: \(error.localizedDescription)")
+            }
+
+            // Delete Firebase Auth account
+            user.delete { error in
+                DispatchQueue.main.async {
+                    isDeleting = false
+                    if let error = error {
+                        deleteError = "Error: \(error.localizedDescription). You may need to sign in again before deleting."
+                    } else {
+                        // Account deleted — dismiss
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Helper Views

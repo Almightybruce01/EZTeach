@@ -2801,3 +2801,64 @@ exports.deleteSchoolAccount = functions.runWith(runtimeOpts).https.onCall(async 
 
   return { success: true, deletedId: accountId };
 });
+
+// ================= DELETE OWN ACCOUNT (Apple 5.1.1(v) compliance) =================
+exports.deleteUserAccount = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be signed in');
+  }
+
+  const uid = context.auth.uid;
+  const userDoc = await db.collection('users').doc(uid).get();
+  const role = userDoc.exists ? userDoc.data().role : null;
+
+  const batch = db.batch();
+
+  // Delete user document
+  if (userDoc.exists) {
+    batch.delete(db.collection('users').doc(uid));
+  }
+
+  // Delete role-specific documents
+  if (role === 'teacher' || role === 'sub') {
+    const col = role === 'teacher' ? 'teachers' : 'subs';
+    const snap = await db.collection(col).where('userId', '==', uid).get();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+  }
+
+  if (role === 'parent') {
+    const snap = await db.collection('parents').where('userId', '==', uid).get();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    // Remove parent links
+    const links = await db.collection('parentStudentLinks').where('parentUserId', '==', uid).get();
+    links.docs.forEach(doc => batch.delete(doc.ref));
+  }
+
+  // Delete conversations where user is only participant
+  const convos = await db.collection('conversations').where('participantIds', 'array-contains', uid).get();
+  convos.docs.forEach(doc => {
+    const pids = doc.data().participantIds || [];
+    if (pids.length <= 2) {
+      batch.delete(doc.ref);
+    }
+  });
+
+  // Delete lesson plans created by user
+  const lessons = await db.collection('lessonPlans').where('teacherId', '==', uid).get();
+  lessons.docs.forEach(doc => batch.delete(doc.ref));
+
+  // Delete support claims
+  const claims = await db.collection('supportClaims').where('userId', '==', uid).get();
+  claims.docs.forEach(doc => batch.delete(doc.ref));
+
+  await batch.commit();
+
+  // Delete Firebase Auth account
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (e) {
+    console.log('Auth delete error (user may delete from client):', e.message);
+  }
+
+  return { success: true, deletedUserId: uid };
+});

@@ -160,7 +160,9 @@ struct CreateAccountView: View {
     
     // MARK: - Role Selector
     private static let mainRoles: [UserRole] = [.parent, .teacher, .sub]
-    private static let adminRoles: [UserRole] = [.school, .district, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor]
+    // School and District removed from in-app registration per Apple Guideline 3.1.1
+    // Schools and districts register at ezteach.org, then log in here
+    private static let adminRoles: [UserRole] = [.principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor]
 
     private var roleSelector: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -173,6 +175,37 @@ struct CreateAccountView: View {
                 }
                 adminCard
             }
+
+            // School/District registration note
+            HStack(spacing: 8) {
+                Image(systemName: "building.2.fill")
+                    .foregroundColor(EZTeachColors.accent)
+                    .font(.subheadline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Registering a school or district?")
+                        .font(.caption.weight(.semibold))
+                    Text("Visit ezteach.org to set up your school, then sign in here.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Button {
+                    if let url = URL(string: "https://ezteach.org/signup") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Text("Go")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(EZTeachColors.accentGradient)
+                        .cornerRadius(8)
+                }
+            }
+            .padding(12)
+            .background(EZTeachColors.accent.opacity(0.08))
+            .cornerRadius(12)
         }
         .sheet(isPresented: $showAdminTypePicker) {
             adminTypePickerSheet
