@@ -50,10 +50,16 @@
   - Demo student "Pepper Clap Snap" is enrolled at Fae Streets Academy
 - [ ] Notes for Reviewer:
   ```
-  EZTeach is a K-12 school management platform. Subscriptions are handled
-  externally via our website (ezteach.org) through Stripe — there are no
-  in-app purchases. The app is free to download and use. Schools subscribe
-  on our website to unlock all features.
+  EZTeach is a free K-12 school management platform. There are no in-app
+  purchases. The app is free to download and use for all roles (teachers,
+  parents, students, staff). School accounts are managed by administrators.
+
+  ACCOUNT DELETION (Guideline 5.1.1v):
+  Account deletion is available in the app:
+  - Staff/Admin: Menu → Account → scroll to bottom → "Delete My Account"
+  - Students: Menu → Account → scroll to bottom → "Delete My Account"
+  Both include double confirmation dialogs before permanent deletion.
+  Deletion removes all user data from Firebase Auth and Firestore.
 
   SCHOOL ADMIN ACCOUNT (recommended for review):
   Email: test.faestreets.ezteach@gmail.com

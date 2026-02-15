@@ -4,10 +4,18 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFunctions
 
 struct StudentAccountView: View {
     let student: Student
     let schoolName: String
+
+    @State private var showDeleteConfirm = false
+    @State private var showDeleteFinalConfirm = false
+    @State private var isDeleting = false
+    @State private var deleteError = ""
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -126,7 +134,82 @@ struct StudentAccountView: View {
                     )
                     .padding(.horizontal)
 
+                    // Delete Account
+                    VStack(spacing: 8) {
+                        Button {
+                            showDeleteConfirm = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                Text("Delete My Account")
+                            }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.red.opacity(0.8))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                        }
+                        .alert("Delete Account?", isPresented: $showDeleteConfirm) {
+                            Button("Cancel", role: .cancel) { }
+                            Button("Continue", role: .destructive) {
+                                showDeleteFinalConfirm = true
+                            }
+                        } message: {
+                            Text("This will permanently delete your account and all associated data. This action cannot be undone.")
+                        }
+                        .alert("Are you absolutely sure?", isPresented: $showDeleteFinalConfirm) {
+                            Button("Cancel", role: .cancel) { }
+                            Button("Delete Forever", role: .destructive) {
+                                deleteStudentAccount()
+                            }
+                        } message: {
+                            Text("Your account, profile, and all data will be permanently removed.")
+                        }
+
+                        if isDeleting {
+                            ProgressView("Deleting...")
+                                .foregroundColor(.white)
+                        }
+                        if !deleteError.isEmpty {
+                            Text(deleteError)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        Text("This will permanently delete your student account and all data.")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.4))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal)
+
                     Spacer(minLength: 40)
+                }
+            }
+        }
+    }
+
+    private func deleteStudentAccount() {
+        guard let user = Auth.auth().currentUser else {
+            deleteError = "Not signed in."
+            return
+        }
+        isDeleting = true
+        deleteError = ""
+
+        let functions = Functions.functions()
+        functions.httpsCallable("deleteUserAccount").call(["userId": user.uid]) { result, error in
+            if let error = error {
+                print("Cloud function error: \(error.localizedDescription)")
+            }
+            user.delete { error in
+                DispatchQueue.main.async {
+                    isDeleting = false
+                    if let error = error {
+                        deleteError = "Error: \(error.localizedDescription). You may need to sign in again."
+                    } else {
+                        dismiss()
+                    }
                 }
             }
         }

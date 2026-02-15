@@ -26,7 +26,7 @@ struct SubscriptionRequiredView: View {
                     Text("Subscription Required")
                         .font(.title2.bold())
 
-                    Text("This feature is not available at this time.\nPlease subscribe or renew your plan to unlock all EZTeach features.")
+                    Text("This feature requires an active school account.\nContact your school administrator to enable access.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -41,8 +41,8 @@ struct SubscriptionRequiredView: View {
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: "creditcard.fill")
-                            Text("View Plans & Billing")
+                            Image(systemName: "info.circle.fill")
+                            Text("View Your Plan")
                                 .fontWeight(.semibold)
                         }
                         .font(.headline)
@@ -54,7 +54,7 @@ struct SubscriptionRequiredView: View {
                     }
                     .padding(.horizontal, 32)
 
-                    Text("We recommend signing up for automatic payments so your school never loses access.")
+                    Text("Contact your school administrator if you need access to this feature.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)

@@ -85,7 +85,7 @@ struct DistrictSubscriptionView: View {
             .alert("District Created!", isPresented: $showSuccess) {
                 Button("Done") { dismiss() }
             } message: {
-                Text("Your district account is set up. Complete payment on our website to activate all \(validatedSchools.count) schools.")
+                Text("Your district account is set up with \(validatedSchools.count) school(s). Contact ezteach0@gmail.com to activate all schools.")
             }
         }
         .onAppear { loadExistingDistrict() }
@@ -215,7 +215,7 @@ struct DistrictSubscriptionView: View {
                                 }
                                 Spacer()
                                 if let tier = tiers.first(where: { $0.tier == school.planTier }) {
-                                    Text("$\(tier.price)/mo")
+                                    Text(tier.label)
                                         .font(.caption.bold())
                                         .foregroundColor(EZTeachColors.accent)
                                 }
@@ -354,7 +354,7 @@ struct DistrictSubscriptionView: View {
                     .cornerRadius(12)
             }
 
-            Text("Next, you'll add schools, pick a plan tier for each, then checkout on our website.")
+            Text("Next, you'll add schools and pick a plan tier for each.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -597,11 +597,9 @@ struct DistrictSubscriptionView: View {
                             HStack {
                                 Text("\(t.label)")
                                 Spacer()
-                                if billingInterval == "monthly" {
-                                    Text("$\(t.price)/mo")
-                                } else {
-                                    Text("$\(t.price * 10)/yr")
-                                }
+                                Text("Up to \(t.cap) students")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
                             .tag(t.tier)
                         }
@@ -619,15 +617,9 @@ struct DistrictSubscriptionView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
-                            if billingInterval == "monthly" {
-                                Text("$\(tier.price)/mo")
-                                    .font(.caption.bold())
-                                    .foregroundColor(EZTeachColors.accent)
-                            } else {
-                                Text("$\(tier.price * 10)/yr")
-                                    .font(.caption.bold())
-                                    .foregroundColor(EZTeachColors.accent)
-                            }
+                            Text(tier.label)
+                                .font(.caption.bold())
+                                .foregroundColor(EZTeachColors.accent)
                         }
                     }
                 }
@@ -641,18 +633,9 @@ struct DistrictSubscriptionView: View {
                 Divider()
 
                 HStack {
-                    Text("District Total")
+                    Text("District Summary")
                         .font(.headline)
                     Spacer()
-                    if billingInterval == "monthly" {
-                        Text("$\(Int(monthlyTotal))/mo")
-                            .font(.title2.bold())
-                            .foregroundStyle(EZTeachColors.primaryGradient)
-                    } else {
-                        Text("$\(Int(yearlyTotal))/yr")
-                            .font(.title2.bold())
-                            .foregroundStyle(EZTeachColors.primaryGradient)
-                    }
                 }
 
                 Text("\(validatedSchools.count) school\(validatedSchools.count == 1 ? "" : "s") • All features included")
@@ -660,16 +643,16 @@ struct DistrictSubscriptionView: View {
                     .foregroundColor(.secondary)
             }
 
-            // Secure payment notice
+            // Setup notice
             VStack(spacing: 12) {
                 HStack {
-                    Image(systemName: "exclamationmark.shield.fill")
-                        .foregroundColor(.orange)
-                    Text("Secure Payment via Website")
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(EZTeachColors.accent)
+                    Text("District Setup")
                         .font(.subheadline.weight(.medium))
                 }
 
-                Text("All payments are processed securely on our website using Stripe. You will be redirected to complete checkout.")
+                Text("Your district account will be set up with the selected schools and tiers. Contact us at ezteach0@gmail.com to finalize your district plan.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -693,11 +676,11 @@ struct DistrictSubscriptionView: View {
                 }
 
                 Button {
-                    proceedToCheckout()
+                    completeSetup()
                 } label: {
                     HStack {
-                        Image(systemName: "creditcard.fill")
-                        Text("Checkout on Website")
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Complete Setup")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
@@ -710,19 +693,7 @@ struct DistrictSubscriptionView: View {
         }
     }
 
-    private func proceedToCheckout() {
-        // Build checkout URL with school tiers
-        let schoolData = validatedSchools.compactMap { school -> String? in
-            guard let tier = schoolTierSelections[school.id] else { return nil }
-            return "\(school.id):\(tier)"
-        }.joined(separator: ",")
-
-        let encodedDistrict = districtName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let checkoutUrl = "https://ezteach.org/checkout/district?name=\(encodedDistrict)&schools=\(schoolData)&billing=\(billingInterval)"
-
-        if let url = URL(string: checkoutUrl) {
-            UIApplication.shared.open(url)
-        }
+    private func completeSetup() {
 
         savePendingSubscription()
     }
@@ -749,7 +720,7 @@ struct DistrictSubscriptionView: View {
             "billingInterval": billingInterval,
             "monthlyTotal": monthlyTotal,
             "yearlyTotal": yearlyTotal,
-            "status": "pending_payment",
+            "status": "pending_activation",
             "createdAt": Timestamp(),
             "expiresAt": Timestamp(date: Calendar.current.date(byAdding: .hour, value: 24, to: Date()) ?? Date())
         ]
@@ -825,9 +796,7 @@ struct CreateSchoolForDistrictSheet: View {
                     TextField("6-Digit School Code", text: $schoolCode)
                         .keyboardType(.numberPad)
                         .onChange(of: schoolCode) { _, v in schoolCode = String(v.prefix(6).filter { $0.isNumber }) }
-                    TextField("Approximate # of Students", text: $approximateStudents)
-                        .keyboardType(.numberPad)
-                        .onChange(of: approximateStudents) { _, v in approximateStudents = String(v.filter { $0.isNumber }) }
+                    // Student count tracked automatically as students are added
                 }
                 Section("School admin (login for this school)") {
                     TextField("First Name", text: $adminFirstName)

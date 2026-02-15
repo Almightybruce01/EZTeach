@@ -1,0 +1,233 @@
+═══════════════════════════════════════════════════════════════
+                    EZTEACH — PRESENTATION SLIDES
+              The All-in-One K-12 School Platform
+═══════════════════════════════════════════════════════════════
+  Open EZTeach-Presentation.html in a browser for the full
+  interactive slide deck with animations and screenshots.
+  This text version is for copy/paste and printing.
+═══════════════════════════════════════════════════════════════
+
+
+SLIDE 1 — TITLE
+───────────────────────────────────────────────────────────────
+                        EZTeach
+          The All-in-One App That Replaces
+              10+ Platforms Schools Already Pay For
+
+  120+ Educational Movies  |  50+ Features Built-In  |  K-12
+
+
+SLIDE 2 — THE PROBLEM
+───────────────────────────────────────────────────────────────
+         Schools Are Drowning in Subscriptions
+
+The average school pays for 8-15 different software platforms —
+attendance, grades, messaging, lesson plans, videos, books, games…
+
+  • $15K+/year spent on separate tools
+  • 5+ Logins teachers juggle daily
+  • Low Adoption — too many tools = none used well
+  • Data Silos — nothing talks to each other
+
+
+SLIDE 3 — THE SOLUTION
+───────────────────────────────────────────────────────────────
+         EZTeach: Everything in One App
+
+One login. One platform. Every tool a school needs — built in
+and working together.
+
+  🎬 120+ Movies — science, history, math, nature, animated
+  🤖 AI Lesson Plans — aligned to YOUR state standards
+  📚 Free Books — thousands from Project Gutenberg
+  🎮 Learning Games — math, reading, science with leaderboards
+  📊 Standards System — national, state, district & school
+  👨‍👩‍👧 AI Tutoring — personalized study plans for parents
+
+
+SLIDE 4 — AI LESSON PLANS
+───────────────────────────────────────────────────────────────
+      AI Lesson Plans That Think Like a Teacher
+
+  ✦ Aligned to YOUR state standards (CCSS, TEKS, B.E.S.T., NGSS)
+  ✦ Generates full lesson plans in seconds
+  ✦ Adapts to grade level, subject, and class type
+  ✦ Includes activities, assessments, and differentiation
+  ✦ Copy, paste, print — ready to use immediately
+  ✦ Gets smarter with every use
+
+  "I used to spend 2 hours on lesson plans. Now it takes 2 minutes."
+
+
+SLIDE 5 — STANDARDS SYSTEM
+───────────────────────────────────────────────────────────────
+              Dynamic Standards System
+
+Every state. Every framework. District and school-level overrides.
+
+  📘 National Frameworks
+     Common Core (ELA & Math) • NGSS (Science) • SHAPE America (PE)
+     CSTA (Computer Science) • ISTE • National Health Standards
+
+  🗺️ State-Specific Standards
+     TEKS (Texas) • B.E.S.T. (Florida) • CA CCSS (California)
+     NY Next Gen • IL Standards • Virginia SOL • Georgia Standards
+
+  🏫 District & School Overrides
+     Districts add custom standards. Schools override with their own.
+     Originals are never deleted — always preserved.
+
+  🔍 Standards Explorer
+     Searchable, filterable UI. AI lessons auto-reference active set.
+
+
+SLIDE 6 — MOVIES & FREE BOOKS
+───────────────────────────────────────────────────────────────
+     120+ Movies & Thousands of Free Books
+
+  🎬 Science, history, nature, animated, classic, documentary
+  🎬 G, PG, and PG-13 rated — age-appropriate
+  🎬 Full-screen video player with native controls
+  📚 Project Gutenberg library — 60,000+ free books
+  📚 Chapter books, picture books, short stories
+  📖 School Library management with check-in/check-out
+
+  Movie Categories:
+  Science (25+) | History (15+) | Nature (15+) | Animated (18+)
+  Adventure (13+) | Classic (8+) | Documentary (12+) | Math/Edu (10+)
+
+
+SLIDE 7 — AI TUTORING FOR PARENTS
+───────────────────────────────────────────────────────────────
+     AI Tutoring & Study Plans for Parents
+
+Parents aren't just informed — they're empowered.
+
+  🎯 Personalized Plans — AI creates step-by-step study guides
+  📱 Parent Portal — grades, homework, attendance in one place
+  💬 Direct Messaging — message teachers, principals, staff
+
+  "My son's grades went up a full letter after I started using
+   the AI study plans at home."
+
+
+SLIDE 8 — GAMES & LEADERBOARDS
+───────────────────────────────────────────────────────────────
+        Learning Games & Leaderboards
+
+  🎮 20+ educational games — math, reading, science, patterns
+  🏆 My School & Worldwide leaderboards — Top 100 students
+  📊 All Time, Monthly, and Weekly rankings
+  🎨 Electives hub: Art, Music, Dance, Band, PE
+  💬 AAC Talker Board for special needs students
+  🔊 Text-to-speech with 200+ emoji cards
+
+  Students don't just use EZTeach — they LOVE it.
+
+  🏆 Live Leaderboard
+  ┌──────────────────────────────────────────┐
+  │  🏫 My School    🌍 Worldwide            │
+  │                                          │
+  │  🥇 Mateo V. ................. 2,450 pts │
+  │  🥈 Sofia R. ................. 2,310 pts │
+  │  🥉 Jayden M. ................ 2,180 pts │
+  │  4. Aisha K. ................. 2,050 pts │
+  │                                          │
+  │  Top 100 shown per view                  │
+  └──────────────────────────────────────────┘
+
+
+SLIDE 9 — WEEKLY SCHOOL PICK
+───────────────────────────────────────────────────────────────
+              Weekly School Pick
+
+  🎁 EZTeach Gives Back
+
+Every week, one school using EZTeach is selected to receive
+gifts, supplies, and rewards.
+
+  🏫 1 School Selected Weekly — random draw from active schools
+  📦 Supplies & Prizes — books, technology, gift cards for teachers
+  📣 Featured Spotlight — winning school on social media
+
+  The more active your school is, the more entries you earn.
+  Every school has a chance.
+
+
+SLIDE 10 — COMPLETE FEATURE SET
+───────────────────────────────────────────────────────────────
+         Everything Your School Needs
+
+  📋 Attendance        📊 Grades           📝 Homework
+  💬 Messaging         📢 Announcements    📹 Video Meetings
+  🔔 Bell Schedule     📄 Documents        🚌 Bus Tracking
+  🍽️ Lunch Menu        📈 Analytics        🧑‍🏫 Sub Management
+  📚 School Library    🏃 Behavior Track   🧩 Talker Board
+  🎁 Weekly Gifts      📖 Free Books       🎓 Electives Hub
+  🌍 Leaderboards      📐 Standards
+
+
+SLIDE 11 — LIVE APP SCREENSHOTS
+───────────────────────────────────────────────────────────────
+          See EZTeach In Action
+
+  [Student Home]   [EZLearning Games]   [Free Library]   [AAC Talker]
+
+  Real screenshots from the app — what students, teachers,
+  and parents see every day.
+
+
+SLIDE 12 — BOOKS & INTERACTIVE CONTENT
+───────────────────────────────────────────────────────────────
+     Books, Reading & Interactive Content
+
+  [Readings by Level]     [Interactive Picture Book]
+
+  100+ picture books built in • Project Gutenberg, Open Library
+  & Internet Archive • Multiplayer "Read Together" sessions
+
+
+SLIDE 13 — CROSS-PLATFORM
+───────────────────────────────────────────────────────────────
+           iPhone, iPad & Mac
+
+  📱 iPhone — full-featured mobile experience
+  📲 iPad — split-view sidebar, content fills the screen
+  💻 Mac — keyboard, mouse, trackpad support via Mac Catalyst
+
+  Plus ezteach.org — account management and all legal pages.
+
+
+SLIDE 14 — PRICING
+───────────────────────────────────────────────────────────────
+          Save Thousands Per Year
+
+Replace 10+ subscriptions with one affordable platform.
+
+  ┌───────────────────────────────────────────────────────────┐
+  │  Starter        Growth          School         District   │
+  │  $129/mo        $349/mo         $999/mo        Custom     │
+  │  ≤200 students  ≤1,000 students ≤7,500 students Unlimited │
+  │                                                           │
+  │  All plans include every feature.                         │
+  │  Tiers differ only by student capacity.                   │
+  └───────────────────────────────────────────────────────────┘
+
+
+SLIDE 15 — CLOSING
+───────────────────────────────────────────────────────────────
+              Let's Get Started
+
+  Your school deserves a platform that does it all — without
+  the chaos of 10 different logins and invoices.
+
+  🎁 Limited Offer — First 25 Schools
+  The first 25 schools to sign up get 25% off their first
+  month or first year — your choice. Plus automatic entry
+  into the Weekly School Pick gift program.
+
+                    Thank You
+               Questions? Let's talk.
+           EZTeach — Making Teaching EZ
+
+═══════════════════════════════════════════════════════════════

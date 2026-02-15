@@ -118,10 +118,9 @@ struct CreateAccountView: View {
                 
                 // Role-specific fields
                 switch role {
-                case .school:
-                    schoolFields
-                case .district:
-                    districtFields
+                case .school, .district:
+                    // School/District registration is website-only (Apple Guideline 3.1.1)
+                    websiteRegistrationPrompt
                 case .teacher, .principal, .assistantPrincipal, .assistantTeacher, .secretary, .librarian, .janitor, .sub:
                     personFields
                 case .parent:
@@ -221,11 +220,11 @@ struct CreateAccountView: View {
                     .font(.title2)
                     .foregroundColor(Self.adminRoles.contains(role) ? .white : EZTeachColors.accent)
 
-                Text("School Administration")
+                Text("Staff & Admin")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(Self.adminRoles.contains(role) ? .white : .primary)
 
-                Text(Self.adminRoles.contains(role) ? role.rawValue : "School, district, principal & staff")
+                Text(Self.adminRoles.contains(role) ? role.rawValue : "Principal, secretary, librarian & more")
                     .font(.caption2)
                     .foregroundColor(Self.adminRoles.contains(role) ? .white.opacity(0.8) : .secondary)
                     .multilineTextAlignment(.center)
@@ -269,7 +268,7 @@ struct CreateAccountView: View {
                     .padding(.vertical, 8)
                 }
             }
-            .navigationTitle("School Administration")
+            .navigationTitle("Staff & Admin Roles")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -330,6 +329,37 @@ struct CreateAccountView: View {
         }
     }
     
+    // MARK: - Website Registration Prompt (for School/District)
+    private var websiteRegistrationPrompt: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "globe")
+                .font(.system(size: 48))
+                .foregroundColor(EZTeachColors.accent)
+            Text("School & District Registration")
+                .font(.title3.bold())
+            Text("School and district accounts are created on our website. Visit ezteach.org to register your school, then sign in here with your account.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                if let url = URL(string: "https://ezteach.org/signup") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Text("Go to ezteach.org")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(EZTeachColors.accentGradient)
+                    .cornerRadius(12)
+            }
+        }
+        .padding(24)
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(16)
+    }
+
     // MARK: - School Fields
     private var schoolFields: some View {
         VStack(spacing: 20) {
@@ -385,18 +415,6 @@ struct CreateAccountView: View {
                         .pickerStyle(.menu)
                     }
                 }
-            }
-
-            formSection(title: "Approximate Number of Students") {
-                formField(icon: "person.3", placeholder: "e.g. 350", text: $approximateStudents)
-                    .keyboardType(.numberPad)
-                    .onChange(of: approximateStudents) { _, v in
-                        approximateStudents = String(v.filter { $0.isNumber })
-                    }
-
-                Text("This helps us recommend the right plan. Your billing is based on actual students you add — you can always change plans later.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
 
             formSection(title: "District Code (Optional)") {

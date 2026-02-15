@@ -1,0 +1,175 @@
+EZTeach — Selling Tips, Talking Points & Presentation Prep
+
+EZTeach — Selling Playbook
+
+Your complete guide to presenting, pitching, and closing deals with schools and districts.
+
+1. Before the Meeting
+
+Know Your Audience
+
+ | Who You're Meeting | What They Care About | Lead With
+
+ | Principal | Student outcomes, teacher retention, parent satisfaction | AI lesson plans, parent portal, student engagement (games)
+
+ | District Admin / Superintendent | Compliance, cost savings, scalability, data | Standards system, pricing vs current spend, analytics
+
+ | Technology Director | Security, integration, maintenance, FERPA | Single platform, FERPA compliance, Firebase security
+
+ | Teacher | Time savings, ease of use, actually works | AI lesson plans demo, one-login simplicity, Talker Board
+
+ | School Board | Budget, community impact, innovation | Cost comparison, Weekly School Pick, parent engagement
+
+Research the School Before You Go
+
+ • Look up their state (you'll reference their exact standards: TEKS, B.E.S.T., CCSS, etc.)
+
+ • Check how many students they have (determines pricing tier)
+
+ • Find out what tools they currently use (Google Classroom? Remind? Class Dojo?)
+
+ • Look for pain points — has their school been in the news for low test scores? Budget cuts?
+
+Pro tip: Ask the front office one question before your meeting: "How many different software platforms do your teachers log into each day?" The answer is usually 5-8. That's your opening.
+
+2. The Opening (First 2 Minutes)
+
+The Hook
+
+You have 90 seconds to grab attention. Don't start with features. Start with the problem.
+
+Opening Script:
+
+"I want to ask you a question. How many different apps and platforms do your teachers use on a daily basis? ... [Let them answer] ... Right. And how many of those do parents actually use? ... [pause] ... That's the problem we solve.
+
+EZTeach is one app that replaces all of them — attendance, grades, messaging, lesson plans, videos, books, games, video meetings, analytics — everything. One login. One platform. And here's what makes us different: we didn't just bundle features together. We built them to work together with AI."
+
+Don't: Jump straight into a feature tour. They'll tune out in 30 seconds.
+
+Do: Start with their pain. Make them feel understood first.
+
+3. The Demo Flow (10-15 Minutes)
+
+Follow this exact order. Each feature builds on the last and creates a "wow" cascade.
+
+Demo Step 1: AI Lesson Plans (3 min) — THE HOOK
+
+"Let me show you what teachers love most. Watch this — I type in 5th grade, Math, Fractions... and in about 10 seconds, the AI generates a full lesson plan aligned to [their state] standards. Activities. Assessments. Differentiation ideas. Copy, paste, print. Done.
+
+Teachers tell me they used to spend 2 hours on Sunday nights writing lesson plans. Now it takes 2 minutes."
+
+Why this works: Every teacher in the room will gasp. This is the feature that sells itself. If you're demoing to a principal, they'll immediately think about teacher retention.
+
+Demo Step 2: Standards System (2 min)
+
+"And those lesson plans aren't using generic standards. We have your state's exact standards built in — [TEKS/B.E.S.T./CCSS/etc.]. But here's what's really powerful: if your district has custom standards, or if your school wants to override something, you can do that. The AI automatically uses whatever is active."
+
+Demo Step 3: Movies & Free Books (2 min)
+
+"Teachers always need content. We have over 120 educational movies built in — science, history, nature, animated, documentaries. They actually play, right in the app. No YouTube. No ads. No getting 'distracted' by recommended videos.
+
+Plus thousands of free books from Project Gutenberg. And a full school library system with check-in, check-out, and book tracking."
+
+Demo Step 4: AI Tutoring for Parents (2 min)
+
+"This is where it gets powerful. Parents don't just see grades — the AI creates personalized study plans they can follow at home. If a child is struggling with fractions, the parent gets a step-by-step guide to practice with them. Homework submissions with photo uploads. Direct messaging with teachers.
+
+We don't just inform parents. We empower them."
+
+Demo Step 5: Games & Leaderboards (1 min)
+
+"Students don't just use EZTeach — they love it. 20+ educational games — math, reading, science, pattern recognition. And the leaderboards? Kids can see the top 100 students at their school or switch to worldwide and compete with students across the country. 'Mateo V., Grade 5, Lincoln Elementary — #1 in the school.' You should see their faces. Engagement goes through the roof."
+
+Demo Step 6: Weekly School Pick (1 min) — THE CLOSER
+
+"And here's something no other platform does. Every week, we select one EZTeach school to receive gifts — school supplies, gift cards, classroom prizes. We feature them on our social media. The more active your school is, the more entries you earn. It keeps schools excited and engaged long after the initial setup."
+
+4. Handling Objections
+
+ | They Say | You Say
+
+ | "We already use Google Classroom." | "Google Classroom is great for assignments. But it doesn't do lesson plans, video meetings, library management, parent study guides, movies, games, or standards alignment. EZTeach does all of that and everything Classroom does."
+
+ | "We don't have budget for this." | "What are you paying for Remind, Class Dojo, IXL, BrainPOP, and your SIS combined? Our plans start at $129/month with every feature included. You'll likely save thousands by consolidating."
+
+ | "Our teachers won't want to learn a new system." | "That's exactly why we built it as one app with one login. Teachers learn one system instead of five. And the AI lesson plans save them so much time that adoption happens naturally."
+
+ | "Is it FERPA compliant?" | "Yes. Built on Firebase with security rules for every collection. Student data is never shared. Parent access is permission-gated."
+
+ | "We need to see it work first." | "Absolutely. Let's set up a 30-day pilot with one grade level or one team. No cost. You'll see the results yourself."
+
+ | "What about special needs students?" | "We built an AAC Talker Board — over 200 emoji cards with text-to-speech, sentence building, and teacher-customizable boards. Special ed teachers love it."
+
+ | "Can you do a district deal?" | "Yes. District pricing includes a central dashboard, standards overrides, multi-school analytics, and volume discounts. Let me get your school count and I'll send a custom quote today."
+
+The #1 objection killer: "What if I could show you that one app replaces [list their current tools] — and costs less than any one of them individually?" Then let them do the math.
+
+5. The Close
+
+Option A: The Pilot Close
+
+"I'm not asking you to commit to anything today. What I'd love to do is set up a free 30-day pilot with one team or grade level. I'll help you get set up, add students, and train teachers in 30 minutes. If you love it, we talk pricing. If not, no hard feelings. Sound fair?"
+
+Option B: The Urgency Close
+
+"We're only offering this to the first 25 schools — 25% off your first month or your entire first year, your choice. Plus, you're automatically entered into our Weekly School Pick gift program from day one. I can have your school set up by [day of the week]. Want to lock it in?"
+
+Option C: The Board Close (for district sales)
+
+"I know you'll need board approval. Let me prepare a one-page cost comparison showing what you currently spend vs. EZTeach. I'll also include a case study. Would it help if I came to the board meeting and did a 5-minute demo?"
+
+Always leave behind: The printed pamphlet, your contact info, and the one-liner: "One app. Replaces ten. Costs less than one."
+
+6. Quick Reference Card
+
+The 30-Second Elevator Pitch
+
+"EZTeach is an all-in-one K-12 school app. AI lesson plans aligned to state standards. 120+ educational movies. Free books. Learning games with school and worldwide leaderboards. Parent portal with AI tutoring. Video meetings. Messaging. Attendance. Grades. Interactive picture books. AAC Talker Board. Everything — one app, one login, iPhone, iPad, and Mac. And every week, we pick a school to receive free gifts. It costs less than what most schools pay for just one of these tools separately."
+
+Key Numbers to Remember
+
+ | 120+ | Educational movies in the library
+
+ | 60,000+ | Free books from Project Gutenberg + Open Library + Internet Archive
+
+ | 100+ | Built-in picture books with read-aloud
+
+ | 20+ | Learning games with school & worldwide leaderboards
+
+ | 50+ | Built-in features
+
+ | 200+ | Emoji cards on the AAC Talker Board
+
+ | K-12 | All grade levels supported
+
+ | 50 states | Standards mapped (CCSS, TEKS, NGSS, B.E.S.T., etc.)
+
+ | $129/mo | Starting price — all features included (up to 200 students)
+
+ | 3 devices | iPhone, iPad, and Mac — one account everywhere
+
+ | 10+ | Platforms EZTeach replaces
+
+ | 2 min | Time to generate a full AI lesson plan
+
+ | 1 school/week | Receives free gifts through Weekly Pick
+
+The One-Liner
+
+"One app. Replaces ten. Costs less than one."
+
+After the Meeting Checklist
+
+ • Send a thank-you email within 2 hours
+
+ • Attach the pamphlet PDF
+
+ • Include a custom cost comparison if they shared current tools
+
+ • Propose specific next step (pilot date, board meeting, follow-up call)
+
+ • Follow up in 3 days if no response
+
+ • Follow up again in 7 days with a "Quick question" email
+
+Final tip: The person you're selling to is also selling internally. Make it easy for them. Give them the pamphlet, the one-liner, and 3 bullet points they can repeat to their boss. If they can't explain it in 30 seconds, the deal dies in committee.

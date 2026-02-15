@@ -3,8 +3,8 @@
 //  EZTeach
 //
 //  Plans & Billing screen (school-role only).
-//  Shows current tier, student usage vs cap, and upgrade options.
-//  Payment happens on the website via Stripe checkout — no IAP.
+//  Shows current plan status, student usage vs cap, and features.
+//  No pricing, payment links, or external purchase references.
 //
 
 import SwiftUI
@@ -20,7 +20,6 @@ struct PlansBillingView: View {
     // School plan state
     @State private var planType       = "school"
     @State private var planTier       = "S"
-    @State private var priceMonthly   = 129
     @State private var studentCap     = 200
     @State private var studentCount   = 0
     @State private var isActive       = true
@@ -29,9 +28,6 @@ struct PlansBillingView: View {
     @State private var subscriptionActive = false
 
     @State private var isLoading      = true
-    @State private var upgradeError: String?
-    @State private var showUpgradeSuccess = false
-    @State private var upgradedTierLabel  = ""
 
     private let db = Firestore.firestore()
     private let tiers = FirestoreService.schoolTiers
@@ -51,16 +47,15 @@ struct PlansBillingView: View {
                             usageCard
                             if planType == "district" {
                                 districtBanner
-                            } else {
-                                tiersSection
-                                districtPricingNote
                             }
+                            featuresCard
+                            supportCard
                         }
                         .padding()
                     }
                 }
             }
-            .navigationTitle("Plans & Billing")
+            .navigationTitle("Your Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -69,16 +64,6 @@ struct PlansBillingView: View {
                 }
             }
             .onAppear(perform: loadPlan)
-            .alert("Upgrade Successful", isPresented: $showUpgradeSuccess) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Your plan has been upgraded to \(upgradedTierLabel). Your new student cap is now active.")
-            }
-            .alert("Error", isPresented: .constant(upgradeError != nil)) {
-                Button("OK") { upgradeError = nil }
-            } message: {
-                Text(upgradeError ?? "")
-            }
         }
     }
 
@@ -97,25 +82,18 @@ struct PlansBillingView: View {
             Text(schoolName.isEmpty ? "Your School" : schoolName)
                 .font(.title2.bold())
 
-            HStack(spacing: 8) {
-                Label(subscriptionActive ? "Active" : "Inactive",
-                      systemImage: subscriptionActive ? "checkmark.seal.fill" : "xmark.seal")
-                    .font(.subheadline.bold())
-                    .foregroundColor(subscriptionActive ? EZTeachColors.success : .orange)
+            Label(subscriptionActive ? "Active" : "Inactive",
+                  systemImage: subscriptionActive ? "checkmark.seal.fill" : "xmark.seal")
+                .font(.subheadline.bold())
+                .foregroundColor(subscriptionActive ? EZTeachColors.success : .orange)
 
-                Text("•")
+            if !subscriptionActive {
+                Text("Contact your school administrator to activate your account.")
+                    .font(.caption)
                     .foregroundColor(.secondary)
-
-                Text("$\(priceMonthly)/mo")
-                    .font(.subheadline.bold())
-                    .foregroundColor(EZTeachColors.accent)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
             }
-
-            Text("All plans include every feature — games, books, AI lesson plans, rosters, classes, sub plans, and admin controls.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
         }
         .padding(20)
         .frame(maxWidth: .infinity)
@@ -142,7 +120,7 @@ struct PlansBillingView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
-                    Text("Student limit reached — upgrade to add more students.")
+                    Text("Student limit reached. Contact your school administrator to increase capacity.")
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
@@ -153,14 +131,28 @@ struct PlansBillingView: View {
         .cornerRadius(14)
     }
 
-    // MARK: - Tiers
-    private var tiersSection: some View {
+    // MARK: - Features
+    private var featuresCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("School Monthly Plans")
+            Text("Included Features")
                 .font(.headline)
 
-            ForEach(tiers, id: \.tier) { t in
-                tierRow(t)
+            VStack(alignment: .leading, spacing: 8) {
+                featureRow("AI Lesson Plans & Standards")
+                featureRow("Student roster, grades & GPA")
+                featureRow("Learning games & leaderboards")
+                featureRow("Free books & Reading Together")
+                featureRow("Homework with photo submissions")
+                featureRow("Parent portal access")
+                featureRow("Attendance & analytics")
+                featureRow("Sub management & requests")
+                featureRow("Video meetings")
+                featureRow("School library management")
+                featureRow("Bell schedules & lunch menus")
+                featureRow("Emergency alerts")
+                featureRow("Behavior tracking")
+                featureRow("Document storage")
+                featureRow("Electives hub")
             }
         }
         .padding(16)
@@ -168,64 +160,14 @@ struct PlansBillingView: View {
         .cornerRadius(14)
     }
 
-    private func tierRow(_ t: (tier: String, label: String, cap: Int, price: Int)) -> some View {
-        let isCurrent = t.tier == planTier
-        return HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(t.label)
-                    .font(.subheadline.bold())
-                Text("Up to \(t.cap) students")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            Text("$\(t.price)/mo")
-                .font(.subheadline.bold().monospacedDigit())
-                .foregroundColor(EZTeachColors.accent)
-
-            if isCurrent {
-                Text("Current")
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(EZTeachColors.accent)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-            } else if tierIndex(t.tier) > tierIndex(planTier) {
-                Button("Upgrade") {
-                    openWebsiteForUpgrade()
-                }
-                .font(.caption.bold())
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(EZTeachColors.accentGradient)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
-        }
-        .padding(12)
-        .background(isCurrent ? EZTeachColors.accent.opacity(0.08) : Color.clear)
-        .cornerRadius(10)
-    }
-
-    // MARK: - District pricing note
-    private var districtPricingNote: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("District Plans")
-                .font(.headline)
-
-            Text("Districts pick a plan tier for each school — same tiers as above. Over 7,500 students? Per-student overage rates apply ($8–$12/student/yr).")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            Text("Contact us at ezteach0@gmail.com or visit ezteach.org for district setup.")
+    private func featureRow(_ text: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(EZTeachColors.success)
                 .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.top, 4)
+            Text(text)
+                .font(.subheadline)
         }
-        .padding(16)
-        .background(EZTeachColors.secondaryBackground)
-        .cornerRadius(14)
     }
 
     // MARK: - District banner
@@ -236,7 +178,7 @@ struct PlansBillingView: View {
                 .foregroundColor(EZTeachColors.accent)
             Text("District-Managed Plan")
                 .font(.headline)
-            Text("This school's plan is managed by your district. Contact your district administrator for billing details.")
+            Text("This school's plan is managed by your district. Contact your district administrator for details.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -247,18 +189,28 @@ struct PlansBillingView: View {
         .cornerRadius(14)
     }
 
-    // MARK: - Helpers
-    private func tierIndex(_ tier: String) -> Int {
-        tiers.firstIndex(where: { $0.tier == tier }) ?? 0
+    // MARK: - Support
+    private var supportCard: some View {
+        VStack(spacing: 8) {
+            Text("Need Help?")
+                .font(.subheadline.bold())
+            Text("Contact your school administrator or email ezteach0@gmail.com for support.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(16)
+        .background(EZTeachColors.secondaryBackground)
+        .cornerRadius(14)
     }
 
+    // MARK: - Load
     private func loadPlan() {
         guard !schoolId.isEmpty else { isLoading = false; return }
         db.collection("schools").document(schoolId).getDocument { snap, _ in
             guard let data = snap?.data() else { isLoading = false; return }
             planType            = data["planType"]            as? String ?? "school"
             planTier            = data["planTier"]            as? String ?? "S"
-            priceMonthly        = data["priceMonthly"]        as? Int    ?? 129
             studentCap          = data["studentCap"]          as? Int    ?? 200
             studentCount        = data["studentCount"]        as? Int    ?? 0
             isActive            = data["isActive"]            as? Bool   ?? true
@@ -270,12 +222,5 @@ struct PlansBillingView: View {
             }
             isLoading = false
         }
-    }
-
-    /// Opens the EZTeach website for subscription management.
-    /// Apple requires that payments happen outside the app, on the web.
-    private func openWebsiteForUpgrade() {
-        guard let url = URL(string: "https://ezteach.org/#pricing") else { return }
-        UIApplication.shared.open(url)
     }
 }

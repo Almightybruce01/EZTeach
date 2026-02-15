@@ -1,0 +1,203 @@
+═══════════════════════════════════════════════════════════════
+        EZTEACH — SELLING TIPS & TALKING POINTS
+              Complete Sales Playbook
+═══════════════════════════════════════════════════════════════
+  Open Selling-Tips-and-Talking-Points.html in a browser for
+  the full interactive version with collapsible sections.
+═══════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────
+              30-SECOND ELEVATOR PITCH
+───────────────────────────────────────────────────────────────
+
+"EZTeach is the all-in-one K-12 school app that replaces 10+
+separate subscriptions — attendance, grades, messaging, AI
+lesson plans, 120+ movies, learning games with school and
+worldwide leaderboards, free books, interactive picture books,
+an AAC Talker Board, and more. Available on iPhone, iPad, and
+Mac. Everything works together under one login. Schools save
+$10K+ per year and teachers save hours every week. We're
+offering the first 25 schools 25% off."
+
+
+───────────────────────────────────────────────────────────────
+            KEY NUMBERS TO REMEMBER
+───────────────────────────────────────────────────────────────
+
+  120+ ........... Educational movies
+  60,000+ ........ Free books (Project Gutenberg + Open Library
+                   + Internet Archive)
+  100+ ........... Built-in picture books with read-aloud
+  20+ ............ Learning games
+  50+ ............ Features included in every plan
+  3 devices ...... iPhone, iPad, Mac
+  $129/mo ........ Starting price (Starter tier)
+  $10K+ .......... Annual savings vs. separate tools
+
+
+───────────────────────────────────────────────────────────────
+                DEMO SCRIPT (10-MIN)
+───────────────────────────────────────────────────────────────
+
+1. LOGIN (30 sec)
+   "Here's the teacher dashboard. One login — everything they
+   need is right here."
+
+2. AI LESSON PLANS (2 min)
+   "Watch this — I'm going to type '4th grade fractions aligned
+   to [their state] standards' and hit generate."
+   → Show the full lesson plan appear in seconds.
+   "Copy, paste, print. Done."
+
+3. MOVIES (1 min)
+   "120+ movies — science, history, animated, documentaries.
+   All age-appropriate, no ads, full screen."
+
+4. GAMES & LEADERBOARDS (2 min)
+   "Students don't just use EZTeach — they love it. 20+ games
+   with two views: My School and Worldwide. Top 100 students.
+   All Time, Monthly, and Weekly rankings."
+   → Show a game, then flip to the leaderboard.
+
+5. BOOKS (1 min)
+   "Thousands of free books, 100+ picture books with read-aloud,
+   and multiplayer Reading Together sessions."
+
+6. PARENT PORTAL (1 min)
+   "Parents see grades, homework, attendance — and the AI creates
+   personalized study plans they can follow at home."
+
+7. MESSAGING (30 sec)
+   "Direct and group messaging, in-app video meetings — everything
+   stays inside the platform. No more emails getting lost."
+
+8. PRICING / CLOSE (2 min)
+   "All of this starts at $129/month. That replaces $15K+ in
+   separate subscriptions. And we're offering the first 25 schools
+   25% off their first month or first year — their choice."
+
+
+───────────────────────────────────────────────────────────────
+         HANDLING COMMON OBJECTIONS
+───────────────────────────────────────────────────────────────
+
+OBJECTION: "We already have systems in place."
+RESPONSE: "That's exactly why schools love EZTeach — it
+replaces all of them. One app, one login, one bill. Your
+teachers stop juggling 5+ platforms and actually use
+everything. We've seen adoption rates go from 30% to 90%
+because everything is in one place."
+
+OBJECTION: "Our teachers won't want to learn something new."
+RESPONSE: "EZTeach is designed to be simpler than what they
+already use. If they can use their phone, they can use
+EZTeach. And because everything is in one app, there's
+actually less to learn — not more."
+
+OBJECTION: "$129/month feels like a lot."
+RESPONSE: "How much are you paying for attendance software
+right now? Grades? Messaging? Videos? Most schools pay
+$15,000+ per year across all these tools. EZTeach starts at
+$129/month — that's $1,548/year. You'd save over $13K
+annually, and get more features."
+
+OBJECTION: "What about data privacy / FERPA?"
+RESPONSE: "All data is encrypted in transit and at rest using
+Firebase/Google Cloud. We're FERPA compliant. Student data
+stays private. We never sell data. Full privacy policy at
+ezteach.org/privacy."
+
+OBJECTION: "Can we try it first?"
+RESPONSE: "Schools can create an account and explore the full
+platform. We offer the first 25 schools 25% off their first
+month or first year — their choice. It's risk-free."
+
+OBJECTION: "What if we outgrow the Starter plan?"
+RESPONSE: "You can upgrade your tier anytime. Growth supports
+up to 1,000 students, School up to 7,500. Districts get
+custom plans with per-school tier selection. You'll never
+outgrow EZTeach."
+
+
+───────────────────────────────────────────────────────────────
+                  URGENCY CLOSE
+───────────────────────────────────────────────────────────────
+
+"Right now, we're offering the first 25 schools to sign up
+25% off their first month or first year — their choice.
+That's [calculate savings for their tier]. Once those 25
+spots are filled, the offer is gone. I can get you set up
+today."
+
+
+───────────────────────────────────────────────────────────────
+              TALKING POINTS BY AUDIENCE
+───────────────────────────────────────────────────────────────
+
+FOR PRINCIPALS / ADMINISTRATORS:
+  • "Replace 10+ subscriptions with one platform"
+  • "Save $10K+ per year in software costs"
+  • "Built-in analytics dashboard — see usage across the school"
+  • "Weekly School Pick — your school could win prizes every week"
+  • "FERPA compliant, encrypted, secure"
+
+FOR TEACHERS:
+  • "AI writes your lesson plans aligned to your state standards"
+  • "Grade book, attendance, homework — all in one app"
+  • "120+ movies ready for your classroom, no searching"
+  • "Sub management built in — write sub plans, find subs"
+  • "No more juggling 5 different logins"
+
+FOR PARENTS:
+  • "See your child's grades, homework, and attendance anytime"
+  • "AI creates a study plan based on what your child needs"
+  • "Message teachers directly — no more missed emails"
+  • "Video meetings for parent-teacher conferences"
+  • "Free books and learning games your child will love"
+
+FOR DISTRICT LEADERS:
+  • "Per-school tier selection — right size for every school"
+  • "District-wide analytics and management dashboard"
+  • "Custom standards overrides at district and school level"
+  • "One vendor, one contract, one platform"
+  • "Scale from one school to hundreds"
+
+FOR IT DIRECTORS:
+  • "Firebase/Google Cloud backend — 99.9% uptime"
+  • "No on-premise servers needed"
+  • "SSO and standard security practices"
+  • "iPhone, iPad, Mac support — no extra apps to manage"
+  • "We handle updates, you handle teaching"
+
+
+───────────────────────────────────────────────────────────────
+              FOLLOW-UP EMAIL TEMPLATE
+───────────────────────────────────────────────────────────────
+
+Subject: EZTeach — Everything Your School Needs in One App
+
+Hi [Name],
+
+Thank you for taking the time to learn about EZTeach today.
+As we discussed, EZTeach replaces 10+ separate school
+software subscriptions with one platform — AI lesson plans,
+120+ movies, 20+ learning games, free books, grades,
+attendance, parent portal, messaging, and much more.
+
+Key highlights from our conversation:
+  • [Personalize based on what resonated]
+  • All plans include every feature — no add-ons
+  • Starting at $129/month (Starter tier)
+  • 25% off for the first 25 schools
+
+I'd love to help you get started. You can reach me anytime
+at [your email/phone].
+
+Best,
+[Your Name]
+EZTeach — Making Teaching EZ
+ezteach.org
+
+
+═══════════════════════════════════════════════════════════════
